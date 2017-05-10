@@ -166,11 +166,22 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
   //   0x34: len16 Number of mounts since the last fsck
   //   0x38: len16 Magic signature 0xEF53
 
-  const string current_device = utils::MakePartitionNameForMount(partition.source_path);
-  brillo::Blob chunk;
+  string source_path;
 
-  utils::ReadFileChunk(current_device, 0x400 + 0x34, sizeof(uint16_t), &chunk);
-  uint16_t mount_count = *reinterpret_cast<uint16_t*>(chunk.data());
+  if (install_plan_.source_slot != BootControlInterface::kInvalidSlot) {
+    boot_control_->GetPartitionDevice(partition.name, install_plan_.source_slot, &source_path);
+  }
+
+  string current_device;
+  uint16_t mount_count = 0;
+
+  if (!source_path.empty()) {
+    current_device = utils::MakePartitionNameForMount(source_path);
+    brillo::Blob chunk;
+
+    utils::ReadFileChunk(current_device, 0x400 + 0x34, sizeof(uint16_t), &chunk);
+    mount_count = *reinterpret_cast<uint16_t*>(chunk.data());
+  }
 
   LOG(INFO) << current_device << " has been mounted R/W " << mount_count << " times.";
 
