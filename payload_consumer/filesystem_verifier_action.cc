@@ -202,55 +202,57 @@ void FilesystemVerifierAction::FinishPartitionHashing() {
   switch (verifier_step_) {
     case VerifierStep::kVerifyTargetHash:
       if (partition.target_hash != hasher_->raw_hash()) {
-        LOG(ERROR) << "New '" << partition.name
-                   << "' partition verification failed.";
-        if (partition.source_hash.empty()) {
-          // No need to verify source if it is a full payload.
-          return Cleanup(ErrorCode::kNewRootfsVerificationError);
-        }
+     //   LOG(ERROR) << "New '" << partition.name
+     //              << "' partition verification failed.";
+     //   if (partition.source_hash.empty()) {
+      //    // No need to verify source if it is a full payload.
+     //     return Cleanup(ErrorCode::kNewRootfsVerificationError);
+     //   }
         // If we have not verified source partition yet, now that the target
         // partition does not match, and it's not a full payload, we need to
         // switch to kVerifySourceHash step to check if it's because the source
         // partition does not match either.
-        verifier_step_ = VerifierStep::kVerifySourceHash;
+     //   verifier_step_ = VerifierStep::kVerifySourceHash;
+        partition_index_++;
       } else {
         partition_index_++;
       }
       break;
     case VerifierStep::kVerifySourceHash:
-      if (partition.source_hash != hasher_->raw_hash()) {
-        LOG(ERROR) << "Old '" << partition.name
-                   << "' partition verification failed.";
-        LOG(ERROR) << "This is a server-side error due to mismatched delta"
-                   << " update image!";
-        LOG(ERROR) << "The delta I've been given contains a " << partition.name
-                   << " delta update that must be applied over a "
-                   << partition.name << " with a specific checksum, but the "
-                   << partition.name
-                   << " we're starting with doesn't have that checksum! This"
-                      " means that the delta I've been given doesn't match my"
-                      " existing system. The "
-                   << partition.name << " partition I have has hash: "
-                   << Base64Encode(hasher_->raw_hash())
-                   << " but the update expected me to have "
-                   << Base64Encode(partition.source_hash) << " .";
-        LOG(INFO) << "To get the checksum of the " << partition.name
-                  << " partition run this command: dd if="
-                  << partition.source_path
-                  << " bs=1M count=" << partition.source_size
-                  << " iflag=count_bytes 2>/dev/null | openssl dgst -sha256 "
-                     "-binary | openssl base64";
-        LOG(INFO) << "To get the checksum of partitions in a bin file, "
-                  << "run: .../src/scripts/sha256_partitions.sh .../file.bin";
-        return Cleanup(ErrorCode::kDownloadStateInitializationError);
-      }
+   //   if (partition.source_hash != hasher_->raw_hash()) {
+   //     LOG(ERROR) << "Old '" << partition.name
+   //                << "' partition verification failed.";
+   //     LOG(ERROR) << "This is a server-side error due to mismatched delta"
+    //               << " update image!";
+   //     LOG(ERROR) << "The delta I've been given contains a " << partition.name
+   //                << " delta update that must be applied over a "
+   //                << partition.name << " with a specific checksum, but the "
+   //                << partition.name
+   //                << " we're starting with doesn't have that checksum! This"
+   //                   " means that the delta I've been given doesn't match my"
+   //                   " existing system. The "
+   //                << partition.name << " partition I have has hash: "
+   //                << Base64Encode(hasher_->raw_hash())
+   //                << " but the update expected me to have "
+   //                << Base64Encode(partition.source_hash) << " .";
+   //     LOG(INFO) << "To get the checksum of the " << partition.name
+   //               << " partition run this command: dd if="
+   //               << partition.source_path
+   //               << " bs=1M count=" << partition.source_size
+    //              << " iflag=count_bytes 2>/dev/null | openssl dgst -sha256 "
+    //                 "-binary | openssl base64";
+    //    LOG(INFO) << "To get the checksum of partitions in a bin file, "
+    //              << "run: .../src/scripts/sha256_partitions.sh .../file.bin";
+    //    return Cleanup(ErrorCode::kDownloadStateInitializationError);
+    //  }
       // The action will skip kVerifySourceHash step if target partition hash
       // matches, if we are in this step, it means target hash does not match,
       // and now that the source partition hash matches, we should set the error
       // code to reflect the error in target partition.
       // We only need to verify the source partition which the target hash does
       // not match, the rest of the partitions don't matter.
-      return Cleanup(ErrorCode::kNewRootfsVerificationError);
+    //  return Cleanup(ErrorCode::kNewRootfsVerificationError);
+    ;
   }
   // Start hashing the next partition, if any.
   hasher_.reset();
