@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2016 The Android Open Source Project
+// Copyright (C) 2018 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,24 +14,29 @@
 // limitations under the License.
 //
 
-#ifndef UPDATE_ENGINE_UTILS_ANDROID_H_
-#define UPDATE_ENGINE_UTILS_ANDROID_H_
+#ifndef UPDATE_ENGINE_COMMON_DLCSERVICE_STUB_H_
+#define UPDATE_ENGINE_COMMON_DLCSERVICE_STUB_H_
 
 #include <string>
+#include <vector>
 
-#include <base/files/file_util.h>
+#include "update_engine/common/dlcservice_interface.h"
 
 namespace chromeos_update_engine {
 
-namespace utils {
+// An implementation of the DlcServiceInterface that does nothing.
+class DlcServiceStub : public DlcServiceInterface {
+ public:
+  DlcServiceStub() = default;
+  ~DlcServiceStub() = default;
 
-// Find the block device that should be mounted in the |mount_point| path and
-// store it in |device|. Returns whether a device was found on the fstab.
-bool DeviceForMountPoint(const std::string& mount_point,
-                         base::FilePath* device);
+  // BootControlInterface overrides.
+  bool GetInstalled(std::vector<std::string>* dlc_module_ids) override;
 
-}  // namespace utils
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DlcServiceStub);
+};
 
 }  // namespace chromeos_update_engine
 
-#endif  // UPDATE_ENGINE_UTILS_ANDROID_H_
+#endif  // UPDATE_ENGINE_COMMON_DLCSERVICE_STUB_H_

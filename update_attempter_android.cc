@@ -25,7 +25,6 @@
 #include <base/bind.h>
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
-#include <brillo/bind_lambda.h>
 #include <brillo/data_encoding.h>
 #include <brillo/message_loops/message_loop.h>
 #include <brillo/strings/string_utils.h>
@@ -49,6 +48,7 @@
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_metadata.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
+#include "update_engine/update_boot_flags_action.h"
 #include "update_engine/update_status_utils.h"
 
 #ifndef _UE_SIDELOAD
@@ -81,7 +81,7 @@ const char* const kGenericError = "generic_error";
 
 // Log and set the error on the passed ErrorPtr.
 bool LogAndSetError(brillo::ErrorPtr* error,
-                    const tracked_objects::Location& location,
+                    const base::Location& location,
                     const string& reason) {
   brillo::Error::AddTo(error, location, kErrorDomain, kGenericError, reason);
   LOG(ERROR) << "Replying with failure: " << location.ToString() << ": "
@@ -141,7 +141,7 @@ bool UpdateAttempterAndroid::ApplyPayload(
     return LogAndSetError(
         error, FROM_HERE, "An update already applied, waiting for reboot");
   }
-  if (ongoing_update_) {
+  if (processor_->IsRunning()) {
     return LogAndSetError(
         error, FROM_HERE, "Already processing an update, cancel it first.");
   }
@@ -222,10 +222,21 @@ bool UpdateAttempterAndroid::ApplyPayload(
   // c) RUN_POST_INSTALL is set to 0.
   if (install_plan_.is_resume && prefs_->Exists(kPrefsPostInstallSucceeded)) {
     bool post_install_succeeded = false;
-    prefs_->GetBoolean(kPrefsPostInstallSucceeded, &post_install_succeeded);
-    if (post_install_succeeded) {
+    if (prefs_->GetBoolean(kPrefsPostInstallSucceeded,
+                           &post_install_succeeded) &&
+        post_install_succeeded) {
       install_plan_.run_post_install =
           GetHeaderAsBool(headers[kPayloadPropertyRunPostInstall], true);
+    }
+  }
+
+  // Skip writing verity if we're resuming and verity has already been written.
+  install_plan_.write_verity = true;
+  if (install_plan_.is_resume && prefs_->Exists(kPrefsVerityWritten)) {
+    bool verity_written = false;
+    if (prefs_->GetBoolean(kPrefsVerityWritten, &verity_written) &&
+        verity_written) {
+      install_plan_.write_verity = false;
     }
   }
 
@@ -249,43 +260,53 @@ bool UpdateAttempterAndroid::ApplyPayload(
   LOG(INFO) << "Using this install plan:";
   install_plan_.Dump();
 
-  BuildUpdateActions(payload_url);
+  HttpFetcher* fetcher = nullptr;
+  if (FileFetcher::SupportedUrl(payload_url)) {
+    DLOG(INFO) << "Using FileFetcher for file URL.";
+    fetcher = new FileFetcher();
+  } else {
+#ifdef _UE_SIDELOAD
+    LOG(FATAL) << "Unsupported sideload URI: " << payload_url;
+#else
+    LibcurlHttpFetcher* libcurl_fetcher =
+        new LibcurlHttpFetcher(&proxy_resolver_, hardware_);
+    libcurl_fetcher->set_server_to_check(ServerToCheck::kDownload);
+    fetcher = libcurl_fetcher;
+#endif  // _UE_SIDELOAD
+  }
   // Setup extra headers.
-  HttpFetcher* fetcher = download_action_->http_fetcher();
   if (!headers[kPayloadPropertyAuthorization].empty())
     fetcher->SetHeader("Authorization", headers[kPayloadPropertyAuthorization]);
   if (!headers[kPayloadPropertyUserAgent].empty())
     fetcher->SetHeader("User-Agent", headers[kPayloadPropertyUserAgent]);
 
-  SetStatusAndNotify(UpdateStatus::UPDATE_AVAILABLE);
-  ongoing_update_ = true;
+  BuildUpdateActions(fetcher);
 
-  // Just in case we didn't update boot flags yet, make sure they're updated
-  // before any update processing starts. This will start the update process.
-  UpdateBootFlags();
+  SetStatusAndNotify(UpdateStatus::UPDATE_AVAILABLE);
 
   UpdatePrefsOnUpdateStart(install_plan_.is_resume);
   // TODO(xunchang) report the metrics for unresumable updates
 
+  ScheduleProcessingStart();
   return true;
 }
 
 bool UpdateAttempterAndroid::SuspendUpdate(brillo::ErrorPtr* error) {
-  if (!ongoing_update_)
+  if (!processor_->IsRunning())
     return LogAndSetError(error, FROM_HERE, "No ongoing update to suspend.");
   processor_->SuspendProcessing();
   return true;
 }
 
 bool UpdateAttempterAndroid::ResumeUpdate(brillo::ErrorPtr* error) {
-  if (!ongoing_update_)
+  if (!processor_->IsRunning())
     return LogAndSetError(error, FROM_HERE, "No ongoing update to resume.");
   processor_->ResumeProcessing();
   return true;
 }
 
 bool UpdateAttempterAndroid::CancelUpdate(brillo::ErrorPtr* error) {
-  if (!ongoing_update_)
+  if (!processor_->IsRunning())
     return LogAndSetError(error, FROM_HERE, "No ongoing update to cancel.");
   processor_->StopProcessing();
   return true;
@@ -299,7 +320,7 @@ bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
     case UpdateStatus::IDLE:
       return true;
 
-    case UpdateStatus::UPDATED_NEED_REBOOT:  {
+    case UpdateStatus::UPDATED_NEED_REBOOT: {
       // Remove the reboot marker so that if the machine is rebooted
       // after resetting to idle state, it doesn't go back to
       // UpdateStatus::UPDATED_NEED_REBOOT state.
@@ -313,14 +334,12 @@ bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
       // Mark the current slot as successful again, since marking it as active
       // may reset the successful bit. We ignore the result of whether marking
       // the current slot as successful worked.
-      if (!boot_control_->MarkBootSuccessfulAsync(Bind([](bool successful){})))
+      if (!boot_control_->MarkBootSuccessfulAsync(Bind([](bool successful) {})))
         ret_value = false;
 
       if (!ret_value) {
         return LogAndSetError(
-            error,
-            FROM_HERE,
-            "Failed to reset the status to ");
+            error, FROM_HERE, "Failed to reset the status to ");
       }
 
       SetStatusAndNotify(UpdateStatus::IDLE);
@@ -352,8 +371,7 @@ bool UpdateAttempterAndroid::VerifyPayloadApplicable(
   }
   ErrorCode errorcode;
   PayloadMetadata payload_metadata;
-  if (payload_metadata.ParsePayloadHeader(
-          metadata, kBrilloMajorPayloadVersion, &errorcode) !=
+  if (payload_metadata.ParsePayloadHeader(metadata, &errorcode) !=
       MetadataParseResult::kSuccess) {
     return LogAndSetError(error,
                           FROM_HERE,
@@ -379,8 +397,13 @@ bool UpdateAttempterAndroid::VerifyPayloadApplicable(
         "Failed to read metadata and signature from " + metadata_filename);
   }
   fd->Close();
-  errorcode = payload_metadata.ValidateMetadataSignature(
-      metadata, "", base::FilePath(constants::kUpdatePayloadPublicKeyPath));
+
+  string public_key;
+  if (!utils::ReadFile(constants::kUpdatePayloadPublicKeyPath, &public_key)) {
+    return LogAndSetError(error, FROM_HERE, "Failed to read public key.");
+  }
+  errorcode =
+      payload_metadata.ValidateMetadataSignature(metadata, "", public_key);
   if (errorcode != ErrorCode::kSuccess) {
     return LogAndSetError(error,
                           FROM_HERE,
@@ -503,6 +526,8 @@ void UpdateAttempterAndroid::ActionCompleted(ActionProcessor* processor,
   }
   if (type == DownloadAction::StaticType()) {
     SetStatusAndNotify(UpdateStatus::FINALIZING);
+  } else if (type == FilesystemVerifierAction::StaticType()) {
+    prefs_->SetBoolean(kPrefsVerityWritten, true);
   }
 }
 
@@ -552,27 +577,6 @@ void UpdateAttempterAndroid::ProgressUpdate(double progress) {
   }
 }
 
-void UpdateAttempterAndroid::UpdateBootFlags() {
-  if (updated_boot_flags_) {
-    LOG(INFO) << "Already updated boot flags. Skipping.";
-    CompleteUpdateBootFlags(true);
-    return;
-  }
-  // This is purely best effort.
-  LOG(INFO) << "Marking booted slot as good.";
-  if (!boot_control_->MarkBootSuccessfulAsync(
-          Bind(&UpdateAttempterAndroid::CompleteUpdateBootFlags,
-               base::Unretained(this)))) {
-    LOG(ERROR) << "Failed to mark current boot as successful.";
-    CompleteUpdateBootFlags(false);
-  }
-}
-
-void UpdateAttempterAndroid::CompleteUpdateBootFlags(bool successful) {
-  updated_boot_flags_ = true;
-  ScheduleProcessingStart();
-}
-
 void UpdateAttempterAndroid::ScheduleProcessingStart() {
   LOG(INFO) << "Scheduling an action processor start.";
   brillo::MessageLoop::current()->PostTask(
@@ -587,13 +591,13 @@ void UpdateAttempterAndroid::TerminateUpdateAndNotify(ErrorCode error_code) {
     return;
   }
 
+  boot_control_->Cleanup();
+
   download_progress_ = 0;
-  actions_.clear();
   UpdateStatus new_status =
       (error_code == ErrorCode::kSuccess ? UpdateStatus::UPDATED_NEED_REBOOT
                                          : UpdateStatus::IDLE);
   SetStatusAndNotify(new_status);
-  ongoing_update_ = false;
 
   // The network id is only applicable to one download attempt and once it's
   // done the network id should not be re-used anymore.
@@ -607,6 +611,9 @@ void UpdateAttempterAndroid::TerminateUpdateAndNotify(ErrorCode error_code) {
   CollectAndReportUpdateMetricsOnUpdateFinished(error_code);
   ClearMetricsPrefs();
   if (error_code == ErrorCode::kSuccess) {
+    // We should only reset the PayloadAttemptNumber if the update succeeds, or
+    // we switch to a different payload.
+    prefs_->Delete(kPrefsPayloadAttemptNumber);
     metrics_utils::SetSystemUpdatedMarker(clock_.get(), prefs_);
     // Clear the total bytes downloaded if and only if the update succeeds.
     prefs_->SetInt64(kPrefsTotalBytesDownloaded, 0);
@@ -627,50 +634,28 @@ void UpdateAttempterAndroid::SetStatusAndNotify(UpdateStatus status) {
   last_notify_time_ = TimeTicks::Now();
 }
 
-void UpdateAttempterAndroid::BuildUpdateActions(const string& url) {
+void UpdateAttempterAndroid::BuildUpdateActions(HttpFetcher* fetcher) {
   CHECK(!processor_->IsRunning());
   processor_->set_delegate(this);
 
   // Actions:
-  shared_ptr<InstallPlanAction> install_plan_action(
-      new InstallPlanAction(install_plan_));
-
-  HttpFetcher* download_fetcher = nullptr;
-  if (FileFetcher::SupportedUrl(url)) {
-    DLOG(INFO) << "Using FileFetcher for file URL.";
-    download_fetcher = new FileFetcher();
-  } else {
-#ifdef _UE_SIDELOAD
-    LOG(FATAL) << "Unsupported sideload URI: " << url;
-#else
-    LibcurlHttpFetcher* libcurl_fetcher =
-        new LibcurlHttpFetcher(&proxy_resolver_, hardware_);
-    libcurl_fetcher->set_server_to_check(ServerToCheck::kDownload);
-    download_fetcher = libcurl_fetcher;
-#endif  // _UE_SIDELOAD
-  }
-  shared_ptr<DownloadAction> download_action(
-      new DownloadAction(prefs_,
-                         boot_control_,
-                         hardware_,
-                         nullptr,           // system_state, not used.
-                         download_fetcher,  // passes ownership
-                         true /* is_interactive */));
-  shared_ptr<FilesystemVerifierAction> filesystem_verifier_action(
-      new FilesystemVerifierAction());
-
-  shared_ptr<PostinstallRunnerAction> postinstall_runner_action(
-      new PostinstallRunnerAction(boot_control_, hardware_));
-
+  auto update_boot_flags_action =
+      std::make_unique<UpdateBootFlagsAction>(boot_control_);
+  auto install_plan_action = std::make_unique<InstallPlanAction>(install_plan_);
+  auto download_action =
+      std::make_unique<DownloadAction>(prefs_,
+                                       boot_control_,
+                                       hardware_,
+                                       nullptr,  // system_state, not used.
+                                       fetcher,  // passes ownership
+                                       true /* interactive */);
   download_action->set_delegate(this);
   download_action->set_base_offset(base_offset_);
-  download_action_ = download_action;
+  auto filesystem_verifier_action =
+      std::make_unique<FilesystemVerifierAction>();
+  auto postinstall_runner_action =
+      std::make_unique<PostinstallRunnerAction>(boot_control_, hardware_);
   postinstall_runner_action->set_delegate(this);
-
-  actions_.push_back(shared_ptr<AbstractAction>(install_plan_action));
-  actions_.push_back(shared_ptr<AbstractAction>(download_action));
-  actions_.push_back(shared_ptr<AbstractAction>(filesystem_verifier_action));
-  actions_.push_back(shared_ptr<AbstractAction>(postinstall_runner_action));
 
   // Bond them together. We have to use the leaf-types when calling
   // BondActions().
@@ -679,9 +664,11 @@ void UpdateAttempterAndroid::BuildUpdateActions(const string& url) {
   BondActions(filesystem_verifier_action.get(),
               postinstall_runner_action.get());
 
-  // Enqueue the actions.
-  for (const shared_ptr<AbstractAction>& action : actions_)
-    processor_->EnqueueAction(action.get());
+  processor_->EnqueueAction(std::move(update_boot_flags_action));
+  processor_->EnqueueAction(std::move(install_plan_action));
+  processor_->EnqueueAction(std::move(download_action));
+  processor_->EnqueueAction(std::move(filesystem_verifier_action));
+  processor_->EnqueueAction(std::move(postinstall_runner_action));
 }
 
 bool UpdateAttempterAndroid::WriteUpdateCompletedMarker() {
@@ -720,10 +707,12 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
 
   metrics::AttemptResult attempt_result =
       metrics_utils::GetAttemptResult(error_code);
-  Time attempt_start_time = Time::FromInternalValue(
+  Time boot_time_start = Time::FromInternalValue(
+      metrics_utils::GetPersistedValue(kPrefsUpdateBootTimestampStart, prefs_));
+  Time monotonic_time_start = Time::FromInternalValue(
       metrics_utils::GetPersistedValue(kPrefsUpdateTimestampStart, prefs_));
-  TimeDelta duration = clock_->GetBootTime() - attempt_start_time;
-  TimeDelta duration_uptime = clock_->GetMonotonicTime() - attempt_start_time;
+  TimeDelta duration = clock_->GetBootTime() - boot_time_start;
+  TimeDelta duration_uptime = clock_->GetMonotonicTime() - monotonic_time_start;
 
   metrics_reporter_->ReportUpdateAttemptMetrics(
       nullptr,  // system_state
@@ -773,6 +762,7 @@ void UpdateAttempterAndroid::CollectAndReportUpdateMetricsOnUpdateFinished(
         num_bytes_downloaded,
         download_overhead_percentage,
         duration,
+        duration_uptime,
         static_cast<int>(reboot_count),
         0);  // url_switch_count
   }
@@ -846,17 +836,17 @@ void UpdateAttempterAndroid::UpdatePrefsOnUpdateStart(bool is_resume) {
         metrics_utils::GetPersistedValue(kPrefsPayloadAttemptNumber, prefs_);
     metrics_utils::SetPayloadAttemptNumber(attempt_number + 1, prefs_);
   }
-  Time update_start_time = clock_->GetMonotonicTime();
-  metrics_utils::SetUpdateTimestampStart(update_start_time, prefs_);
+  metrics_utils::SetUpdateTimestampStart(clock_->GetMonotonicTime(), prefs_);
+  metrics_utils::SetUpdateBootTimestampStart(clock_->GetBootTime(), prefs_);
 }
 
 void UpdateAttempterAndroid::ClearMetricsPrefs() {
   CHECK(prefs_);
   prefs_->Delete(kPrefsCurrentBytesDownloaded);
   prefs_->Delete(kPrefsNumReboots);
-  prefs_->Delete(kPrefsPayloadAttemptNumber);
   prefs_->Delete(kPrefsSystemUpdatedMarker);
   prefs_->Delete(kPrefsUpdateTimestampStart);
+  prefs_->Delete(kPrefsUpdateBootTimestampStart);
 }
 
 }  // namespace chromeos_update_engine
