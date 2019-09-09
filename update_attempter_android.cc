@@ -29,7 +29,7 @@
 #include <brillo/message_loops/message_loop.h>
 #include <brillo/strings/string_utils.h>
 #include <log/log_safetynet.h>
-#include <cutils/sched_policy.h>
+#include <processgroup/sched_policy.h>
 #include <log/log.h>
 
 #include "update_engine/common/constants.h"

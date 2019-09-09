@@ -131,6 +131,7 @@ cc_defaults {
         "libbase",
         "libcrypto",
         "libfec",
+        "libprocessgroup",
     ],
 }
 
@@ -280,6 +281,7 @@ cc_library_static {
         "update_boot_flags_action.cc",
         "update_status_utils.cc",
     ],
+
 }
 
 // update_engine (type: executable)
