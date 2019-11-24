@@ -958,7 +958,7 @@ bool DeltaPerformer::InitPartitionMetadata() {
                      << partition_name
                      << " but it is not part of the manifest. "
                      << "This is not supported.";
-          return false;
+          //return false;
         }
         e.partitions.push_back({partition_name, it->second});
       }
@@ -966,8 +966,8 @@ bool DeltaPerformer::InitPartitionMetadata() {
     }
   }
 
-  bool metadata_updated = false;
-  prefs_->GetBoolean(kPrefsDynamicPartitionMetadataUpdated, &metadata_updated);
+  bool metadata_updated = true;
+  //prefs_->GetBoolean(kPrefsDynamicPartitionMetadataUpdated, &metadata_updated);
   if (!boot_control_->InitPartitionMetadata(
           install_plan_->target_slot, partition_metadata, !metadata_updated)) {
     LOG(ERROR) << "Unable to initialize partition metadata for slot "

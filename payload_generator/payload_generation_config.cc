@@ -182,7 +182,7 @@ bool ImageConfig::ValidateDynamicPartitionMetadata() const {
       if (partition_config == partitions.end()) {
         LOG(ERROR) << "Cannot find partition " << partition_name
                    << " which is in " << group.name() << "_partition_list";
-        return false;
+        //return false;
       }
       sum_size += partition_config->size;
     }
