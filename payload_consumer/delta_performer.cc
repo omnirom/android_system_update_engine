@@ -922,12 +922,16 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
     install_plan_->partitions.push_back(install_part);
   }
 
+#ifdef TARGET_ENFORCE_AB_OTA_PARTITION_LIST
+  LOG(INFO) << "Skip InitPartitionMetadata because device has set TARGET_ENFORCE_AB_OTA_PARTITION_LIST";
+#else
   if (install_plan_->target_slot != BootControlInterface::kInvalidSlot) {
     if (!InitPartitionMetadata()) {
       *error = ErrorCode::kInstallDeviceOpenError;
       return false;
     }
   }
+#endif
 
   if (!install_plan_->LoadPartitionsFromSlots(boot_control_)) {
     LOG(ERROR) << "Unable to determine all the partition devices.";
