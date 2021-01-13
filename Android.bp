@@ -138,7 +138,6 @@ cc_defaults {
         "libcrypto",
         "libfec",
         "libprocessgroup",
-        "libselinux",
     ],
 }
 
