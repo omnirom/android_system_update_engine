@@ -16,6 +16,23 @@
       "message": "doesnt that need a manifest change too? :)",
       "revId": "d9a9e669bf284263cc41b68b0e74b56d1813a69d",
       "serverId": "56841c99-7c94-43d4-bf0b-cb4707e66d55"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ba6dd8c9_22f9af94",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000026
+      },
+      "writtenOn": "2022-08-26T21:04:33Z",
+      "side": 1,
+      "message": "ignore my last comment",
+      "revId": "d9a9e669bf284263cc41b68b0e74b56d1813a69d",
+      "serverId": "56841c99-7c94-43d4-bf0b-cb4707e66d55"
     }
   ]
 }
