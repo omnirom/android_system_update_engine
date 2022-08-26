@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "cfbe1d57_2d6b0a23",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000026
+      },
+      "writtenOn": "2022-08-26T21:03:55Z",
+      "side": 1,
+      "message": "doesnt that need a manifest change too? :)",
+      "revId": "d9a9e669bf284263cc41b68b0e74b56d1813a69d",
+      "serverId": "56841c99-7c94-43d4-bf0b-cb4707e66d55"
+    }
+  ]
+}
