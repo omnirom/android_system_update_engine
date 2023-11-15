@@ -298,6 +298,7 @@ cc_library_static {
         "ue_defaults",
         "libpayload_consumer_exports",
         "libpayload_consumer_defaults",
+        "omni_weekly_build_defaults",
     ],
 }
 
