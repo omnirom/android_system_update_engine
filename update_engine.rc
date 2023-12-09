@@ -2,7 +2,7 @@ service update_engine /system/bin/update_engine --logtostderr --logtofile --fore
     class late_start
     user root
     group root system wakelock inet cache media_rw
-    task_profiles OtaProfiles
+    task_profiles ProcessCapacityMax HighIoPriority MaxPerformance
     disabled
 
 on property:ro.boot.slot_suffix=*
