@@ -17,14 +17,12 @@
 #ifndef UPDATE_ENGINE_PAYLOAD_CONSUMER_PAYLOAD_METADATA_H_
 #define UPDATE_ENGINE_PAYLOAD_CONSUMER_PAYLOAD_METADATA_H_
 
-#include <inttypes.h>
-
 #include <string>
-#include <vector>
 
 #include <android-base/macros.h>
 #include <brillo/secure_blob.h>
 
+#include "update_engine/common/utils.h"
 #include "update_engine/common/error_code.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/update_metadata.pb.h"
@@ -55,6 +53,12 @@ class PayloadMetadata {
   // the payload.
   MetadataParseResult ParsePayloadHeader(const brillo::Blob& payload,
                                          ErrorCode* error);
+  MetadataParseResult ParsePayloadHeader(std::string_view payload,
+                                         ErrorCode* error) {
+    return ParsePayloadHeader(reinterpret_cast<const uint8_t*>(payload.data()),
+                              payload.size(),
+                              error);
+  }
   MetadataParseResult ParsePayloadHeader(const unsigned char* payload,
                                          size_t size,
                                          ErrorCode* error);
@@ -69,9 +73,16 @@ class PayloadMetadata {
   // to the payload server doesn't exploit any vulnerability in the code that
   // parses the protocol buffer.
   ErrorCode ValidateMetadataSignature(
-      const brillo::Blob& payload,
+      std::string_view payload,
       const std::string& metadata_signature,
       const PayloadVerifier& payload_verifier) const;
+  ErrorCode ValidateMetadataSignature(
+      const std::vector<uint8_t>& payload,
+      const std::string& metadata_signature,
+      const PayloadVerifier& payload_verifier) const {
+    return ValidateMetadataSignature(
+        ToStringView(payload), metadata_signature, payload_verifier);
+  }
 
   // Returns the major payload version. If the version was not yet parsed,
   // returns zero.
@@ -93,6 +104,12 @@ class PayloadMetadata {
   bool GetManifest(const unsigned char* payload,
                    size_t size,
                    DeltaArchiveManifest* out_manifest) const;
+  bool GetManifest(std::string_view payload,
+                   DeltaArchiveManifest* out_manifest) const {
+    return GetManifest(reinterpret_cast<const uint8_t*>(payload.data()),
+                       payload.size(),
+                       out_manifest);
+  }
 
   // Parses a payload file |payload_path| and prepares the metadata properties,
   // manifest and metadata signatures. Can be used as an easy to use utility to

@@ -1,0 +1,20 @@
+aconfig_declarations {
+    name: "update_engine_aconfig_declarations",
+    package: "com.android.update_engine",
+    container: "system",
+    srcs: [
+        "update_engine_flags.aconfig",
+    ],
+}
+
+java_aconfig_library {
+    name: "update_engine_flags_java_lib",
+    aconfig_declarations: "update_engine_aconfig_declarations",
+    sdk_version: "core_platform",
+    libs: ["fake_device_config"],
+}
+
+cc_aconfig_library {
+    name: "update_engine_flags_cc_lib",
+    aconfig_declarations: "update_engine_aconfig_declarations",
+}

@@ -598,6 +598,15 @@ bool DeltaPerformer::ParseManifest(const char** c_bytes,
   // new_cow_size per partition = partition_size - (#blocks in Copy
   // operations part of the partition)
   if (install_plan_->vabc_none) {
+    size_t cowOpsize = android::snapshot::GetCowOpSize(
+        manifest_.dynamic_partition_metadata().cow_version());
+    if (cowOpsize == 0) {
+      cowOpsize = sizeof(android::snapshot::CowOperationV2);
+      LOG(WARNING) << "Failed to determine cow op size for COW version "
+                   << manifest_.dynamic_partition_metadata().cow_version()
+                   << ", defaulting to " << cowOpsize;
+    }
+
     LOG(INFO) << "Setting Virtual AB Compression algorithm to none. This "
                  "would also disable VABC XOR as XOR only saves space if "
                  "compression is enabled.";
@@ -628,13 +637,11 @@ bool DeltaPerformer::ParseManifest(const char** c_bytes,
       // Every block written to COW device will come with a header which
       // stores src/dst block info along with other data.
       const auto cow_metadata_size = partition.new_partition_info().size() /
-                                     manifest_.block_size() *
-                                     sizeof(android::snapshot::CowOperation);
+                                     manifest_.block_size() * cowOpsize;
       // update_engine will emit a label op every op or every two seconds,
       // whichever one is longer. In the worst case, we add 1 label per
       // InstallOp. So take size of label ops into account.
-      const auto label_ops_size =
-          partition.operations_size() * sizeof(android::snapshot::CowOperation);
+      const auto label_ops_size = partition.operations_size() * cowOpsize;
       // Adding extra 2MB headroom just for any unexpected space usage.
       // If we overrun reserved COW size, entire OTA will fail
       // and no way for user to retry OTA

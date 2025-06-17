@@ -339,6 +339,7 @@ class DynamicPartitionControlAndroid : public DynamicPartitionControlInterface {
   bool SetTargetBuildVars(const DeltaArchiveManifest& manifest);
 
   std::string GetDeviceName(std::string partition_name, uint32_t slot) const;
+  android::snapshot::ISnapshotManager* GetSnapshotManager();
 
   std::set<std::string> mapped_devices_;
   const FeatureFlag dynamic_partitions_;

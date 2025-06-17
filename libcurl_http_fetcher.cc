@@ -648,11 +648,17 @@ void LibcurlHttpFetcher::Unpause() {
     return;
   }
   CHECK(curl_handle_);
-  CHECK_EQ(curl_easy_pause(curl_handle_, CURLPAUSE_CONT), CURLE_OK);
-  // Since the transfer is in progress, we need to dispatch a CurlPerformOnce()
-  // now to let the connection continue, otherwise it would be called by the
-  // TimeoutCallback but with a delay.
-  CurlPerformOnce();
+  auto ret = curl_easy_pause(curl_handle_, CURLPAUSE_CONT);
+  if (ret != CURLE_OK) {
+    LOG(ERROR) << "Failed to unpause connection, reason: " << ret
+               << ". Terminating transfer.";
+    TerminateTransfer();
+  } else {
+    // Since the transfer is in progress, we need to dispatch a
+    // CurlPerformOnce() now to let the connection continue, otherwise it would
+    // be called by the TimeoutCallback but with a delay.
+    CurlPerformOnce();
+  }
 }
 
 // This method sets up callbacks with the MessageLoop.

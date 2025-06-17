@@ -68,12 +68,4 @@ python_binary_host {
     libs: [
         "update_payload",
     ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

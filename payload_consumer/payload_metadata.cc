@@ -154,7 +154,7 @@ bool PayloadMetadata::GetManifest(const unsigned char* payload,
 }
 
 ErrorCode PayloadMetadata::ValidateMetadataSignature(
-    const brillo::Blob& payload,
+    const std::string_view payload,
     const string& metadata_signature,
     const PayloadVerifier& payload_verifier) const {
   if (payload.size() < metadata_size_ + metadata_signature_size_)

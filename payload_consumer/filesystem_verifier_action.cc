@@ -16,7 +16,6 @@
 
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,7 +27,6 @@
 #include <memory>
 #include <numeric>
 #include <string>
-#include <utility>
 
 #include <base/bind.h>
 #include <brillo/data_encoding.h>

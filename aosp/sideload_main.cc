@@ -120,7 +120,7 @@ class SideloadDaemonState : public DaemonStateInterface,
 };
 
 // Apply an update payload directly from the given payload URI.
-bool ApplyUpdatePayload(const string& payload,
+ErrorCode ApplyUpdatePayload(const string& payload,
                         int64_t payload_offset,
                         int64_t payload_size,
                         const vector<string>& headers,
@@ -145,13 +145,13 @@ bool ApplyUpdatePayload(const string& payload,
       boot_control::CreateBootControl();
   if (!boot_control) {
     LOG(ERROR) << "Error initializing the BootControlInterface.";
-    return false;
+    return ErrorCode::kError;
   }
 
   std::unique_ptr<HardwareInterface> hardware = hardware::CreateHardware();
   if (!hardware) {
     LOG(ERROR) << "Error initializing the HardwareInterface.";
-    return false;
+    return ErrorCode::kError;
   }
 
   UpdateAttempterAndroid update_attempter(&sideload_daemon_state,
@@ -161,11 +161,13 @@ bool ApplyUpdatePayload(const string& payload,
                                           nullptr);
   update_attempter.Init();
 
-  TEST_AND_RETURN_FALSE(update_attempter.ApplyPayload(
-      payload, payload_offset, payload_size, headers, nullptr));
+  if (!update_attempter.ApplyPayload(
+          payload, payload_offset, payload_size, headers, nullptr)) {
+    LOG(ERROR) << "Error attempting the ApplyPayload.";
+  }
 
   loop.Run();
-  return sideload_daemon_state.status() == UpdateStatus::UPDATED_NEED_REBOOT;
+  return sideload_daemon_state.error_code();
 }
 
 }  // namespace
@@ -198,9 +200,6 @@ int main(int argc, char** argv) {
   vector<string> headers = base::SplitString(
       FLAGS_headers, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
 
-  if (!chromeos_update_engine::ApplyUpdatePayload(
-          FLAGS_payload, FLAGS_offset, FLAGS_size, headers, FLAGS_status_fd))
-    return 1;
-
-  return 0;
+  return static_cast<int>(chromeos_update_engine::ApplyUpdatePayload(
+      FLAGS_payload, FLAGS_offset, FLAGS_size, headers, FLAGS_status_fd));
 }

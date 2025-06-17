@@ -18,12 +18,12 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include <base/bind.h>
 #include <base/logging.h>
 #include <bootloader_message/bootloader_message.h>
 #include <brillo/message_loops/message_loop.h>
+
 
 #include "update_engine/aosp/dynamic_partition_control_android.h"
 

@@ -1291,6 +1291,47 @@ cc_test {
     ],
 }
 
+// update_engine_unittests (type: executable)
+// ========================================================
+// Main unittest file.
+cc_test {
+    name: "update_engine_recovery_unittests",
+    defaults: [
+        "ue_defaults",
+        "update_metadata-protos_exports",
+    ],
+    cflags: [
+        "-D__ANDROID_RECOVERY__",
+    ],
+
+    static_libs: [
+        "libbrillo-test-helpers",
+        "libbase",
+        "liblog",
+        "libgmock",
+        "libchrome_test_helpers",
+        "libupdate_engine_android",
+        "update_metadata-protos",
+        "libsnapshot_cow",
+        "libdm",
+    ],
+
+    header_libs: [
+        "libstorage_literals_headers",
+    ],
+    test_suites: ["device-tests"],
+    srcs: [
+        "payload_consumer/postinstall_runner_action_recovery_unittest.cc",
+        "payload_consumer/postinstall_runner_action.cc",
+        "common/subprocess.cc",
+        "common/test_utils.cc",
+        "common/utils.cc",
+        "common/dynamic_partition_control_stub.cc",
+        "common/action_processor.cc",
+        "common/error_code_utils.cc",
+    ],
+}
+
 // Brillo update payload generation script
 // ========================================================
 sh_binary {

@@ -17,8 +17,6 @@
 #ifndef UPDATE_ENGINE_AOSP_SERVICE_DELEGATE_ANDROID_INTERFACE_H_
 #define UPDATE_ENGINE_AOSP_SERVICE_DELEGATE_ANDROID_INTERFACE_H_
 
-#include <inttypes.h>
-
 #include <memory>
 #include <string>
 #include <vector>

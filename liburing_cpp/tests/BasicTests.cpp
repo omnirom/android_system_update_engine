@@ -192,3 +192,50 @@ TEST_F(IoUringTest, ExtentRead) {
     ASSERT_EQ(data[i], i % 256);
   }
 }
+
+TEST_F(IoUringTest, ExtentReadFixedBuffers) {
+  const int fd = fileno(fp);
+  ASSERT_NO_FATAL_FAILURE(WriteTestData(fd, kBlockSize * 3, kBlockSize));
+  ASSERT_NO_FATAL_FAILURE(WriteTestData(fd, kBlockSize * 5, kBlockSize));
+  ASSERT_NO_FATAL_FAILURE(WriteTestData(fd, kBlockSize * 8, kBlockSize));
+  ASSERT_NO_FATAL_FAILURE(WriteTestData(fd, kBlockSize * 13, kBlockSize));
+  fsync(fd);
+
+  std::vector<unsigned char> data;
+  data.resize(kBlockSize * 4);
+  std::unique_ptr<struct iovec[]> vecs = std::make_unique<struct iovec[]>(4);
+  for (int i = 0; i < 4; i++) {
+    vecs[i].iov_base = data.data() + i * kBlockSize;
+    vecs[i].iov_len = kBlockSize;
+  }
+
+  ASSERT_TRUE(ring->RegisterBuffers(vecs.get(), 4).IsOk());
+
+  ASSERT_TRUE(
+      ring->PrepReadFixed(fd, data.data(), kBlockSize, 3 * kBlockSize, 0)
+          .IsOk());
+  ASSERT_TRUE(
+      ring->PrepReadFixed(
+              fd, data.data() + kBlockSize, kBlockSize, 5 * kBlockSize, 1)
+          .IsOk());
+  ASSERT_TRUE(
+      ring->PrepReadFixed(
+              fd, data.data() + kBlockSize * 2, kBlockSize, 8 * kBlockSize, 2)
+          .IsOk());
+  ASSERT_TRUE(
+      ring->PrepReadFixed(
+              fd, data.data() + kBlockSize * 3, kBlockSize, 13 * kBlockSize, 3)
+          .IsOk());
+  ring->SubmitAndWait(4);
+  const auto cqes = ring->PopCQE(4);
+  if (cqes.IsErr()) {
+    FAIL() << cqes.GetError().ErrMsg();
+    return;
+  }
+  for (const auto& cqe : cqes.GetResult()) {
+    ASSERT_GT(cqe.res, 0);
+  }
+  for (int i = 0; i < data.size(); ++i) {
+    ASSERT_EQ(data[i], i % 256);
+  }
+}

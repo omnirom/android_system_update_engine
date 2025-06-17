@@ -53,6 +53,12 @@ class IoUringInterface {
   // Register a set of file descriptors to kernel.
   virtual Errno RegisterFiles(const int* files, size_t files_size) = 0;
   virtual Errno UnregisterFiles() = 0;
+
+  // Prepare read to a registered buffer. This does not submit the operation
+  // to the kernel. For that, call |IoUringInterface::Submit()|
+  virtual IoUringSQE PrepReadFixed(
+      int fd, void* buf, unsigned nbytes, uint64_t offset, int buf_index) = 0;
+
   // Append a submission entry into this io_uring. This does not submit the
   // operation to the kernel. For that, call |IoUringInterface::Submit()|
   virtual IoUringSQE PrepRead(int fd, void *buf, unsigned nbytes,

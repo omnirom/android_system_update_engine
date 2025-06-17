@@ -17,7 +17,6 @@
 #ifndef UPDATE_ENGINE_AOSP_BOOT_CONTROL_ANDROID_H_
 #define UPDATE_ENGINE_AOSP_BOOT_CONTROL_ANDROID_H_
 
-#include <map>
 #include <memory>
 #include <string>
 

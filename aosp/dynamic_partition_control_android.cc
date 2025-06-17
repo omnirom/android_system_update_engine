@@ -226,7 +226,7 @@ bool DynamicPartitionControlAndroid::MapPartitionInternal(
     // One exception is when /metadata is not mounted. Fallback to
     // CreateLogicalPartition as snapshots are not created in the first place.
     params.timeout_ms = kMapSnapshotTimeout;
-    success = snapshot_->MapUpdateSnapshot(params, path);
+    success = GetSnapshotManager()->MapUpdateSnapshot(params, path);
   } else {
     params.timeout_ms = kMapTimeout;
     success = CreateLogicalPartition(params, path);
@@ -311,7 +311,7 @@ bool DynamicPartitionControlAndroid::UnmapPartitionOnDeviceMapper(
     // a paused update. Clean up any underlying devices.
     if (ExpectMetadataMounted() &&
         !device_name.ends_with(kRWSourcePartitionSuffix)) {
-      success &= snapshot_->UnmapUpdateSnapshot(device_name);
+      success &= GetSnapshotManager()->UnmapUpdateSnapshot(device_name);
     } else {
       LOG(INFO) << "Skip UnmapUpdateSnapshot(" << device_name << ")";
     }
@@ -328,7 +328,7 @@ bool DynamicPartitionControlAndroid::UnmapPartitionOnDeviceMapper(
 }
 
 bool DynamicPartitionControlAndroid::UnmapAllPartitions() {
-  snapshot_->UnmapAllSnapshots();
+  GetSnapshotManager()->UnmapAllSnapshots();
   if (mapped_devices_.empty()) {
     return false;
   }
@@ -358,12 +358,9 @@ void DynamicPartitionControlAndroid::Cleanup() {
   LOG(INFO) << "UnmapAllPartitions done";
   metadata_device_.reset();
   if (GetVirtualAbFeatureFlag().IsEnabled()) {
-    snapshot_ = SnapshotManager::New();
-  } else {
-    snapshot_ = SnapshotManagerStub::New();
+    // Release ISnapshotManager instance so GSID can be gracefully shutdown
+    snapshot_ = nullptr;
   }
-  CHECK(snapshot_ != nullptr) << "Cannot initialize SnapshotManager.";
-  LOG(INFO) << "SnapshotManager initialized.";
 }
 
 bool DynamicPartitionControlAndroid::DeviceExists(const std::string& path) {
@@ -585,7 +582,7 @@ bool DynamicPartitionControlAndroid::PreparePartitionsForUpdate(
     // should not proceed because during next boot, snapshots will overlay on
     // the devices incorrectly.
     if (ExpectMetadataMounted()) {
-      TEST_AND_RETURN_FALSE(snapshot_->CancelUpdate());
+      TEST_AND_RETURN_FALSE(GetSnapshotManager()->CancelUpdate());
     } else {
       LOG(INFO) << "Skip canceling previous update because metadata is not "
                 << "mounted";
@@ -996,6 +993,20 @@ bool DynamicPartitionControlAndroid::CheckSuperPartitionAllocatableSpace(
   return true;
 }
 
+android::snapshot::ISnapshotManager*
+DynamicPartitionControlAndroid::GetSnapshotManager() {
+  if (snapshot_ == nullptr) {
+    if (GetVirtualAbFeatureFlag().IsEnabled()) {
+      snapshot_ = SnapshotManager::New();
+    } else {
+      snapshot_ = SnapshotManagerStub::New();
+    }
+  }
+  CHECK(snapshot_ != nullptr) << "Cannot initialize SnapshotManager.";
+  LOG(INFO) << "SnapshotManager initialized.";
+  return snapshot_.get();
+}
+
 bool DynamicPartitionControlAndroid::PrepareSnapshotPartitionsForUpdate(
     uint32_t source_slot,
     uint32_t target_slot,
@@ -1018,11 +1029,11 @@ bool DynamicPartitionControlAndroid::PrepareSnapshotPartitionsForUpdate(
   TEST_AND_RETURN_FALSE(
       CheckSuperPartitionAllocatableSpace(builder.get(), manifest, true));
 
-  if (!snapshot_->BeginUpdate()) {
+  if (!GetSnapshotManager()->BeginUpdate()) {
     LOG(ERROR) << "Cannot begin new update.";
     return false;
   }
-  auto ret = snapshot_->CreateUpdateSnapshots(manifest);
+  auto ret = GetSnapshotManager()->CreateUpdateSnapshots(manifest);
   if (!ret) {
     LOG(ERROR) << "Cannot create update snapshots: " << ret.string();
     if (required_size != nullptr &&
@@ -1124,9 +1135,9 @@ bool DynamicPartitionControlAndroid::UpdatePartitionMetadata(
 
 bool DynamicPartitionControlAndroid::FinishUpdate(bool powerwash_required) {
   if (ExpectMetadataMounted()) {
-    if (snapshot_->GetUpdateState() == UpdateState::Initiated) {
+    if (GetSnapshotManager()->GetUpdateState() == UpdateState::Initiated) {
       LOG(INFO) << "Snapshot writes are done.";
-      return snapshot_->FinishedSnapshotWrites(powerwash_required);
+      return GetSnapshotManager()->FinishedSnapshotWrites(powerwash_required);
     }
   } else {
     LOG(INFO) << "Skip FinishedSnapshotWrites() because /metadata is not "
@@ -1350,7 +1361,7 @@ DynamicPartitionControlAndroid::GetCleanupPreviousUpdateAction(
     return std::make_unique<NoOpAction>();
   }
   return std::make_unique<CleanupPreviousUpdateAction>(
-      prefs, boot_control, snapshot_.get(), delegate);
+      prefs, boot_control, GetSnapshotManager(), delegate);
 }
 
 bool DynamicPartitionControlAndroid::ResetUpdate(PrefsInterface* prefs) {
@@ -1372,7 +1383,7 @@ bool DynamicPartitionControlAndroid::ResetUpdate(PrefsInterface* prefs) {
       prefs, false /* quick */, false /* skip dynamic partitions metadata */));
 
   if (ExpectMetadataMounted()) {
-    TEST_AND_RETURN_FALSE(snapshot_->CancelUpdate());
+    TEST_AND_RETURN_FALSE(GetSnapshotManager()->CancelUpdate());
   } else {
     LOG(INFO) << "Skip cancelling update in ResetUpdate because /metadata is "
               << "not mounted";
@@ -1473,7 +1484,7 @@ bool DynamicPartitionControlAndroid::EnsureMetadataMounted() {
   }
 
   if (metadata_device_ == nullptr) {
-    metadata_device_ = snapshot_->EnsureMetadataMounted();
+    metadata_device_ = GetSnapshotManager()->EnsureMetadataMounted();
   }
   return metadata_device_ != nullptr;
 }
@@ -1497,7 +1508,7 @@ DynamicPartitionControlAndroid::OpenCowWriter(
       .timeout_ms = kMapSnapshotTimeout};
   // TODO(zhangkelvin) Open an APPEND mode CowWriter once there's an API to do
   // it.
-  return snapshot_->OpenSnapshotWriter(params, label);
+  return GetSnapshotManager()->OpenSnapshotWriter(params, label);
 }  // namespace chromeos_update_engine
 
 std::unique_ptr<FileDescriptor> DynamicPartitionControlAndroid::OpenCowFd(
@@ -1531,7 +1542,13 @@ std::optional<base::FilePath> DynamicPartitionControlAndroid::GetSuperDevice() {
 }
 
 bool DynamicPartitionControlAndroid::MapAllPartitions() {
-  return snapshot_->MapAllSnapshots(kMapSnapshotTimeout);
+  // This flag tells us if VAB is enabled. In the case it's not (e.g. for
+  // secondary payloads) we are falling back on A/B and MapAllPartitions should
+  // just be a no-op
+  if (!target_supports_snapshot_) {
+    return true;
+  }
+  return GetSnapshotManager()->MapAllSnapshots(kMapSnapshotTimeout);
 }
 
 bool DynamicPartitionControlAndroid::IsDynamicPartition(
@@ -1555,7 +1572,7 @@ bool DynamicPartitionControlAndroid::IsDynamicPartition(
 
 bool DynamicPartitionControlAndroid::UpdateUsesSnapshotCompression() {
   return GetVirtualAbFeatureFlag().IsEnabled() &&
-         snapshot_->UpdateUsesCompression();
+         GetSnapshotManager()->UpdateUsesCompression();
 }
 
 FeatureFlag

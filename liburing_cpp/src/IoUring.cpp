@@ -82,6 +82,19 @@ class IoUring final : public IoUringInterface {
     return ret;
   }
 
+  IoUringSQE PrepReadFixed(int fd,
+                           void* buf,
+                           unsigned nbytes,
+                           uint64_t offset,
+                           int buf_index) override {
+    auto sqe = io_uring_get_sqe(&ring);
+    if (sqe == nullptr) {
+      return IoUringSQE{nullptr};
+    }
+    io_uring_prep_read_fixed(sqe, fd, buf, nbytes, offset, buf_index);
+    return IoUringSQE{static_cast<void*>(sqe)};
+  }
+
   IoUringSQE PrepRead(int fd, void* buf, unsigned nbytes,
                       uint64_t offset) override {
     auto sqe = io_uring_get_sqe(&ring);

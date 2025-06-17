@@ -40,6 +40,11 @@ class FakeBootControl : public BootControlInterface {
     dynamic_partition_control_.reset(new DynamicPartitionControlStub());
   }
 
+  void SetDynamicPartitionControl(
+      std::unique_ptr<DynamicPartitionControlInterface> dynamic_control) {
+    dynamic_partition_control_ = std::move(dynamic_control);
+  }
+
   // BootControlInterface overrides.
   unsigned int GetNumSlots() const override { return num_slots_; }
   BootControlInterface::Slot GetCurrentSlot() const override {

@@ -18,15 +18,12 @@
 #define UPDATE_ENGINE_COMMON_BOOT_CONTROL_INTERFACE_H_
 
 #include <climits>
-#include <map>
 #include <string>
-#include <vector>
 
 #include <base/callback.h>
 #include <android-base/macros.h>
 
 #include "update_engine/common/dynamic_partition_control_interface.h"
-#include "update_engine/update_metadata.pb.h"
 
 namespace chromeos_update_engine {
 

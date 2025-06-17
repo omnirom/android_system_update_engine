@@ -17,11 +17,8 @@
 #include "update_engine/payload_generator/full_update_generator.h"
 
 #include <fcntl.h>
-#include <inttypes.h>
 
 #include <algorithm>
-#include <deque>
-#include <memory>
 
 #include <base/format_macros.h>
 #include <android-base/stringprintf.h>
@@ -98,7 +95,7 @@ bool ChunkProcessor::ProcessChunk() {
       fd_, buffer_in_.data(), buffer_in_.size(), offset_, &bytes_read));
   TEST_AND_RETURN_FALSE(bytes_read == static_cast<ssize_t>(size_));
 
-  InstallOperation::Type op_type;
+  InstallOperation::Type op_type{};
   TEST_AND_RETURN_FALSE(diff_utils::GenerateBestFullOperation(
       buffer_in_, version_, &op_blob, &op_type));
 
@@ -122,7 +119,7 @@ bool FullUpdateGenerator::GenerateOperations(
   // For performance reasons, we force a small default hard limit of 1 MiB. This
   // limit can be changed in the config, and we will use the smaller of the two
   // soft/hard limits.
-  size_t full_chunk_size;
+  size_t full_chunk_size{};
   if (config.hard_chunk_size >= 0) {
     full_chunk_size = std::min(static_cast<size_t>(config.hard_chunk_size),
                                config.soft_chunk_size);

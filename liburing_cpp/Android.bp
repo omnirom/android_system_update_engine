@@ -1,4 +1,3 @@
-
 package {
     // See: http://go/android-license-faq
     // A large-scale-change added 'default_applicable_licenses' to import
@@ -9,31 +8,32 @@ package {
 }
 
 cc_library {
-	name: "liburing_cpp",
-	host_supported: true,
-	recovery_available: true,
-	srcs: [
-		"src/IoUring.cpp",
-		"src/IoUringSQE.cpp",
-	],
-	static_libs: [
-		"liburing",
-	],
-	export_include_dirs: [
-		"include",
-	],
+    name: "liburing_cpp",
+    host_supported: true,
+    recovery_available: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
+    srcs: [
+        "src/IoUring.cpp",
+        "src/IoUringSQE.cpp",
+    ],
+    static_libs: [
+        "liburing",
+    ],
+    export_include_dirs: [
+        "include",
+    ],
 }
 
-
 cc_test_host {
-	name: "liburing_cpp_tests",
-	srcs: [
-		"tests/BasicTests.cpp",
-		"tests/main.cpp",
-	],
-	static_libs: [
-		"libgtest",
-		"liburing",
-		"liburing_cpp",
-	],
+    name: "liburing_cpp_tests",
+    srcs: [
+        "tests/BasicTests.cpp",
+        "tests/main.cpp",
+    ],
+    static_libs: [
+        "libgtest",
+        "liburing",
+        "liburing_cpp",
+    ],
 }
