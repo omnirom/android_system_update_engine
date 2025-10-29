@@ -294,8 +294,11 @@ cc_library_static {
         "ue_defaults",
         "libpayload_consumer_exports",
         "libpayload_consumer_defaults",
-        "omni_weekly_build_defaults",
     ],
+    cflags: select(soong_config_variable("update_engine", "use_weekly_build"), {
+        "true": ["-DUSE_WEEKLY_BUILD"],
+        default: [],
+    }),
 }
 
 cc_library_static {
@@ -304,8 +307,11 @@ cc_library_static {
         "ue_defaults",
         "libpayload_consumer_exports_proto-full",
         "libpayload_consumer_defaults",
-        "omni_weekly_build_defaults",
     ],
+    cflags: select(soong_config_variable("weekly_build", "use_weekly_build"), {
+        "true": ["-DUSE_WEEKLY_BUILD"],
+        default: [],
+    }),
 }
 
 cc_library_static {
