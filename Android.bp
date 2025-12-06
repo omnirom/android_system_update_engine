@@ -296,7 +296,7 @@ cc_library_static {
         "libpayload_consumer_defaults",
     ],
     cflags: select(soong_config_variable("update_engine", "use_weekly_build"), {
-        "true": ["-DUSE_WEEKLY_BUILD"],
+        true: ["-DUSE_WEEKLY_BUILD"],
         default: [],
     }),
 }
@@ -309,7 +309,7 @@ cc_library_static {
         "libpayload_consumer_defaults",
     ],
     cflags: select(soong_config_variable("weekly_build", "use_weekly_build"), {
-        "true": ["-DUSE_WEEKLY_BUILD"],
+        true: ["-DUSE_WEEKLY_BUILD"],
         default: [],
     }),
 }
