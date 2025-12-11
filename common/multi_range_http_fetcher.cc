@@ -191,7 +191,7 @@ std::string MultiRangeHttpFetcher::Range::ToString() const {
   return range_str;
 }
 
-void MultiRangeHttpFetcher::SetOffset(off_t offset) {
+void MultiRangeHttpFetcher::SetOffset(off64_t offset) {
   current_index_ = 0;
   for (const Range& range : ranges_) {
     if (!range.HasLength() || static_cast<size_t>(offset) < range.length()) {

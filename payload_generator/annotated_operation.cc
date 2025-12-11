@@ -43,7 +43,7 @@ bool AnnotatedOperation::SetOperationBlob(const brillo::Blob& blob,
     op.clear_data_length();
     return true;
   }
-  off_t data_offset = blob_file->StoreBlob(blob);
+  off64_t data_offset = blob_file->StoreBlob(blob);
   TEST_AND_RETURN_FALSE(data_offset != -1);
   op.set_data_offset(data_offset);
   op.set_data_length(blob.size());

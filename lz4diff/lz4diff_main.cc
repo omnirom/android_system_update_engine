@@ -16,7 +16,7 @@
 
 #include "lz4diff.h"
 #include "lz4diff/lz4patch.h"
-#include "lz4diff_compress.h"
+#include "payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/filesystem_interface.h"
 #include "update_engine/payload_generator/erofs_filesystem.h"
 #include "update_engine/common/utils.h"
@@ -56,11 +56,17 @@ int ExecuteLz4diff(const char* src_image_path,
 
   brillo::Blob lz4diff_patch;
   if (op == DIFF || op == TEST) {
-    Lz4Diff(src_blob,
-            dst_blob,
-            src_file.compressed_file_info,
-            dst_file.compressed_file_info,
-            &lz4diff_patch);
+    if (!src_file.is_compressed) {
+      LOG(INFO) << "File " << src_file.name << " of size "
+                << src_file.file_stat.st_size << " is not compressed, skip";
+      return 0;
+    }
+    CHECK(Lz4Diff(src_blob,
+                  dst_blob,
+                  src_file.compressed_file_info,
+                  dst_file.compressed_file_info,
+                  &lz4diff_patch))
+        << src_file.name << " " << src_blob.size();
     if (patch_file) {
       CHECK(utils::WriteFile(
           patch_file, lz4diff_patch.data(), lz4diff_patch.size()));
@@ -70,7 +76,8 @@ int ExecuteLz4diff(const char* src_image_path,
     utils::ReadFile(patch_file, &lz4diff_patch);
     Blob actual_target;
     CHECK(Lz4Patch(
-        ToStringView(src_blob), ToStringView(lz4diff_patch), &actual_target));
+        ToStringView(src_blob), ToStringView(lz4diff_patch), &actual_target))
+        << " " << src_file.name;
     if (actual_target != dst_blob) {
       LOG(ERROR) << "Final postfixed blob mismatch. " << src_file.name;
     } else {

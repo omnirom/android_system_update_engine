@@ -25,11 +25,10 @@
 #include <puffin/puffdiff.h>
 #include <lz4.h>
 #include <lz4hc.h>
+#include <puffin/utils.h>
 
 #include "update_engine/common/utils.h"
 #include "update_engine/common/hash_calculator.h"
-#include "update_engine/payload_generator/deflate_utils.h"
-#include "update_engine/payload_generator/delta_diff_generator.h"
 #include "lz4diff/lz4diff.pb.h"
 #include "lz4diff_format.h"
 

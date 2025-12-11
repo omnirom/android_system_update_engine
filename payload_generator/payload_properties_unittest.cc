@@ -81,7 +81,7 @@ class PayloadPropertiesTest : public ::testing::Test {
     unique_ptr<OperationsGenerator> strategy(new FullUpdateGenerator());
 
     vector<AnnotatedOperation> aops;
-    off_t data_file_size = 0;
+    off64_t data_file_size = 0;
     ScopedTempFile data_file("temp_data.XXXXXX", true);
     BlobFileWriter blob_file_writer(data_file.fd(), &data_file_size);
     // Generate the operations using the strategy we selected above.

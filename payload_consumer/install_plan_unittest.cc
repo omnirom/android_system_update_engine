@@ -23,7 +23,6 @@ namespace chromeos_update_engine {
 TEST(InstallPlanTest, Dump) {
   InstallPlan install_plan;
   install_plan.download_url = "foo-download-url";
-  install_plan.version = "foo-version";
   install_plan.payloads = {{
       .payload_urls = {"url1", "url2"},
       .metadata_signature = "foo-signature",
@@ -46,7 +45,6 @@ TEST(InstallPlanTest, Dump) {
 
   EXPECT_EQ(install_plan.ToString(),
             R"(type: new_update
-version: foo-version
 source_slot: INVALID
 target_slot: INVALID
 initial url: foo-download-url

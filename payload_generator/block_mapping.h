@@ -47,14 +47,14 @@ class BlockMapping {
   // offset in bytes |byte_offset|. The data block may or may not be cached, so
   // the file descriptor must be available until the BlockMapping is destroyed.
   // Returns the unique block id of the added block or -1 in case of error.
-  BlockId AddDiskBlock(int fd, off_t byte_offset);
+  BlockId AddDiskBlock(int fd, off64_t byte_offset);
 
   // This is a helper method to add |num_blocks| contiguous blocks reading them
   // from the file descriptor |fd| starting at offset |initial_byte_offset|.
   // Returns whether it succeeded to add all the disk blocks and stores in
   // |block_ids| the block id for each one of the added blocks.
   bool AddManyDiskBlocks(int fd,
-                         off_t initial_byte_offset,
+                         off64_t initial_byte_offset,
                          size_t num_blocks,
                          std::vector<BlockId>* block_ids);
 
@@ -64,7 +64,7 @@ class BlockMapping {
   // Add a single block passed in |block_data|. If |fd| is not -1, the block
   // can be discarded to save RAM and retrieved later from |fd| at the position
   // |byte_offset|.
-  BlockId AddBlock(int fd, off_t byte_offset, const brillo::Blob& block_data);
+  BlockId AddBlock(int fd, off64_t byte_offset, const brillo::Blob& block_data);
 
   size_t block_size_;
 
@@ -80,7 +80,7 @@ class BlockMapping {
 
     // The location on this unique block on disk (if not cached in block_data).
     int fd{-1};
-    off_t byte_offset{0};
+    off64_t byte_offset{0};
 
     // Number of times we have seen this data block. Used for caching.
     uint32_t times_read{0};

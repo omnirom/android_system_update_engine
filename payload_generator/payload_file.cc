@@ -39,14 +39,14 @@ namespace chromeos_update_engine {
 namespace {
 
 struct DeltaObject {
-  DeltaObject(const string& in_name, const int in_type, const off_t in_size)
+  DeltaObject(const string& in_name, const int in_type, const off64_t in_size)
       : name(in_name), type(in_type), size(in_size) {}
   bool operator<(const DeltaObject& object) const {
     return (size != object.size) ? (size < object.size) : (name < object.name);
   }
   string name;
   int type;
-  off_t size;
+  off64_t size;
 };
 
 // Writes the uint64_t passed in in host-endian to the file as big-endian.
@@ -350,7 +350,7 @@ bool PayloadFile::AddOperationHash(InstallOperation* op,
 
 void PayloadFile::ReportPayloadUsage(uint64_t metadata_size) const {
   std::map<DeltaObject, int> object_counts;
-  off_t total_size = 0;
+  off64_t total_size = 0;
   int total_op = 0;
 
   for (const auto& part : part_vec_) {

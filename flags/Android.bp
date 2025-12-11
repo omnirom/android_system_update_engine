@@ -5,6 +5,7 @@ aconfig_declarations {
     srcs: [
         "update_engine_flags.aconfig",
     ],
+    exportable: true,
 }
 
 java_aconfig_library {
@@ -12,6 +13,14 @@ java_aconfig_library {
     aconfig_declarations: "update_engine_aconfig_declarations",
     sdk_version: "core_platform",
     libs: ["fake_device_config"],
+}
+
+java_aconfig_library {
+    name: "update_engine_exported_flags_java_lib",
+    aconfig_declarations: "update_engine_aconfig_declarations",
+    sdk_version: "core_platform",
+    libs: ["fake_device_config"],
+    mode: "exported",
 }
 
 cc_aconfig_library {

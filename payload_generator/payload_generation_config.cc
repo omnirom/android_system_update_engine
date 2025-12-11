@@ -68,7 +68,7 @@ bool PartitionConfig::ValidateExists() const {
   TEST_AND_RETURN_FALSE(utils::FileExists(path.c_str()));
   TEST_AND_RETURN_FALSE(size > 0);
   // The requested size is within the limits of the file.
-  TEST_AND_RETURN_FALSE(static_cast<off_t>(size) <=
+  TEST_AND_RETURN_FALSE(static_cast<off64_t>(size) <=
                         utils::FileSize(path.c_str()));
   return true;
 }

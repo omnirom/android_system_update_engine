@@ -15,6 +15,7 @@
 //
 #include "update_engine/update_status_utils.h"
 
+#include <format>
 #include <base/logging.h>
 #include <brillo/key_value_store.h>
 

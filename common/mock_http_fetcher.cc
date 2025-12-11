@@ -45,12 +45,12 @@ void MockHttpFetcher::BeginTransfer(const std::string& url) {
     SignalTransferComplete();
     return;
   }
-  if (sent_offset_ < data_.size())
+  if (sent_offset_ < static_cast<off64_t>(data_.size()))
     SendData(true);
 }
 
 void MockHttpFetcher::SendData(bool skip_delivery) {
-  if (fail_transfer_ || sent_offset_ == data_.size()) {
+  if (fail_transfer_ || sent_offset_ == static_cast<off64_t>(data_.size())) {
     SignalTransferComplete();
     return;
   }
@@ -72,7 +72,8 @@ void MockHttpFetcher::SendData(bool skip_delivery) {
 
   if (!skip_delivery || !delay_) {
     const size_t chunk_size =
-        min(kMockHttpFetcherChunkSize, data_.size() - sent_offset_);
+        min(kMockHttpFetcherChunkSize,
+            static_cast<uint64_t>(data_.size() - sent_offset_));
     sent_offset_ += chunk_size;
     bytes_sent_ += chunk_size;
     CHECK(delegate_);
@@ -86,7 +87,7 @@ void MockHttpFetcher::SendData(bool skip_delivery) {
 void MockHttpFetcher::TimeoutCallback() {
   CHECK(!paused_);
   timeout_id_ = MessageLoop::kTaskIdNull;
-  CHECK_LE(sent_offset_, data_.size());
+  CHECK_LE(sent_offset_, static_cast<off64_t>(data_.size()));
   // Same here, we should not access any member variable after this call.
   SendData(false);
 }

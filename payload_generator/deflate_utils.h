@@ -87,7 +87,7 @@ bool CompactDeflates(const std::vector<Extent>& extents,
                      const std::vector<puffin::BitExtent>& in_deflates,
                      std::vector<puffin::BitExtent>* out_deflates);
 
-// Combines |FindDeflates| and |CompcatDeflates| for ease of use.
+// Combines |FindDeflates| and |CompactDeflates| for ease of use.
 bool FindAndCompactDeflates(const std::vector<Extent>& extents,
                             const std::vector<puffin::BitExtent>& in_deflates,
                             std::vector<puffin::BitExtent>* out_deflates);

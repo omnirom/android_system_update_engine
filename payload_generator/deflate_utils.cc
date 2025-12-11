@@ -115,12 +115,10 @@ bool IsBitExtentInExtent(const Extent& extent, const BitExtent& bit_extent) {
          ((bit_extent.offset + bit_extent.length + 7) / 8) <=
              ((extent.start_block() + extent.num_blocks()) * kBlockSize);
 }
+}  // namespace
 
 // Returns whether the given file |name| has an extension listed in
 // |extensions|.
-
-}  // namespace
-
 constexpr base::StringPiece ToStringPiece(std::string_view s) {
   return base::StringPiece(s.data(), s.length());
 }
@@ -244,13 +242,21 @@ bool CompactDeflates(const vector<Extent>& extents,
                      const vector<BitExtent>& in_deflates,
                      vector<BitExtent>* out_deflates) {
   size_t bytes_passed = 0;
+
   out_deflates->reserve(in_deflates.size());
+
+  std::vector<bool> bitmask(in_deflates.size(), false);
   for (const auto& extent : extents) {
     size_t gap_bytes = extent.start_block() * kBlockSize - bytes_passed;
-    for (const auto& deflate : in_deflates) {
+    for (size_t i = 0; i < in_deflates.size(); i++) {
+      if (bitmask[i]) {
+        continue;
+      }
+      auto deflate = in_deflates[i];
       if (IsBitExtentInExtent(extent, deflate)) {
         out_deflates->emplace_back(deflate.offset - (gap_bytes * 8),
                                    deflate.length);
+        bitmask[i] = true;
       }
     }
     bytes_passed += extent.num_blocks() * kBlockSize;

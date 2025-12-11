@@ -43,7 +43,7 @@ bool HashCalculator::Update(const void* data, size_t length) {
   return true;
 }
 
-off_t HashCalculator::UpdateFile(const string& name, off_t length) {
+off64_t HashCalculator::UpdateFile(const string& name, off64_t length) {
   int fd = HANDLE_EINTR(open(name.c_str(), O_RDONLY));
   if (fd < 0) {
     return -1;
@@ -51,9 +51,9 @@ off_t HashCalculator::UpdateFile(const string& name, off_t length) {
 
   const int kBufferSize = 128 * 1024;  // 128 KiB
   brillo::Blob buffer(kBufferSize);
-  off_t bytes_processed = 0;
+  off64_t bytes_processed = 0;
   while (length < 0 || bytes_processed < length) {
-    off_t bytes_to_read = buffer.size();
+    off64_t bytes_to_read = buffer.size();
     if (length >= 0 && bytes_to_read > length - bytes_processed) {
       bytes_to_read = length - bytes_processed;
     }
@@ -100,11 +100,11 @@ bool HashCalculator::RawHashOfFile(const string& name, brillo::Blob* out_hash) {
   return RawHashOfFile(name, file_size, out_hash) == file_size;
 }
 
-off_t HashCalculator::RawHashOfFile(const string& name,
-                                    off_t length,
+off64_t HashCalculator::RawHashOfFile(const string& name,
+                                    off64_t length,
                                     brillo::Blob* out_hash) {
   HashCalculator calc;
-  off_t res = calc.UpdateFile(name, length);
+  off64_t res = calc.UpdateFile(name, length);
   if (res < 0) {
     return res;
   }

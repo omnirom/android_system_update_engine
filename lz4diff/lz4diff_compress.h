@@ -18,6 +18,7 @@
 #define UPDATE_ENGINE_LZ4DIFF_LZ4DIFF_COMPRESS_H_
 
 #include "lz4diff_format.h"
+#include <functional>
 #include <string_view>
 
 namespace chromeos_update_engine {

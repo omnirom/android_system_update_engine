@@ -57,17 +57,17 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
 
   void ClearRanges() { ranges_.clear(); }
 
-  void AddRange(off_t offset, size_t size) {
+  void AddRange(off64_t offset, size_t size) {
     CHECK_GT(size, static_cast<size_t>(0));
     ranges_.push_back(Range(offset, size));
   }
 
-  void AddRange(off_t offset) { ranges_.push_back(Range(offset)); }
+  void AddRange(off64_t offset) { ranges_.push_back(Range(offset)); }
 
   // HttpFetcher overrides.
-  void SetOffset(off_t offset) override;
+  void SetOffset(off64_t offset) override;
 
-  void SetLength(size_t length) override {}  // unsupported
+  void SetLength(uint64_t length) override {}  // unsupported
   void UnsetLength() override {}
 
   // Begins the transfer to the specified URL.
@@ -106,7 +106,7 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
     base_fetcher_->SetProxies(proxies);
   }
 
-  inline size_t GetBytesDownloaded() override {
+  inline uint64_t GetBytesDownloaded() override {
     return base_fetcher_->GetBytesDownloaded();
   }
 
@@ -128,10 +128,10 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
   // request a zero-length range in HTTP).
   class Range {
    public:
-    Range(off_t offset, size_t length) : offset_(offset), length_(length) {}
-    explicit Range(off_t offset) : offset_(offset), length_(0) {}
+    Range(off64_t offset, size_t length) : offset_(offset), length_(length) {}
+    explicit Range(off64_t offset) : offset_(offset), length_(0) {}
 
-    inline off_t offset() const { return offset_; }
+    inline off64_t offset() const { return offset_; }
     inline size_t length() const { return length_; }
 
     inline bool HasLength() const { return (length_ > 0); }
@@ -139,7 +139,7 @@ class MultiRangeHttpFetcher : public HttpFetcher, public HttpFetcherDelegate {
     std::string ToString() const;
 
    private:
-    off_t offset_;
+    off64_t offset_;
     size_t length_;
   };
 

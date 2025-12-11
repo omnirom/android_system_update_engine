@@ -111,7 +111,7 @@ void TestSplitReplaceOrReplaceXzOperation(InstallOperation::Type orig_type,
   int data_fd = open(data_file.path().c_str(), O_RDWR, 000);
   EXPECT_GE(data_fd, 0);
   ScopedFdCloser data_fd_closer(&data_fd);
-  off_t data_file_size = op_blob.size();
+  off64_t data_file_size = op_blob.size();
   BlobFileWriter blob_file(data_fd, &data_file_size);
 
   // Split the operation.
@@ -273,7 +273,7 @@ void TestMergeReplaceOrReplaceXzOperations(InstallOperation::Type orig_type,
   int data_fd = open(data_file.path().c_str(), O_RDWR, 000);
   EXPECT_GE(data_fd, 0);
   ScopedFdCloser data_fd_closer(&data_fd);
-  off_t data_file_size = blob_data.size();
+  off64_t data_file_size = blob_data.size();
   BlobFileWriter blob_file(data_fd, &data_file_size);
 
   // Merge the operations.

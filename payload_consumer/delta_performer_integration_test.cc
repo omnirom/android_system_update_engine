@@ -182,18 +182,18 @@ static void CompareFilesByBlock(const string& a_file,
   }
 }
 
-static bool WriteSparseFile(const string& path, off_t size) {
+static bool WriteSparseFile(const string& path, off64_t size) {
   int fd = open(path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
   TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
   ScopedFdCloser fd_closer(&fd);
-  off_t rc = lseek(fd, size + 1, SEEK_SET);
-  TEST_AND_RETURN_FALSE_ERRNO(rc != static_cast<off_t>(-1));
+  off64_t rc = lseek(fd, size + 1, SEEK_SET);
+  TEST_AND_RETURN_FALSE_ERRNO(rc != static_cast<off64_t>(-1));
   int return_code = ftruncate(fd, size);
   TEST_AND_RETURN_FALSE_ERRNO(return_code == 0);
   return true;
 }
 
-static bool WriteByteAtOffset(const string& path, off_t offset) {
+static bool WriteByteAtOffset(const string& path, off64_t offset) {
   int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0644);
   TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
   ScopedFdCloser fd_closer(&fd);
@@ -585,12 +585,12 @@ static void GenerateDeltaFile(bool full_kernel,
   ASSERT_EQ(0,
             HANDLE_EINTR(truncate(state->a_img->path().c_str(),
                                   state->image_size + 1024 * 1024)));
-  ASSERT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
+  ASSERT_EQ(static_cast<off64_t>(state->image_size + 1024 * 1024),
             utils::FileSize(state->a_img->path()));
   ASSERT_EQ(0,
             HANDLE_EINTR(truncate(state->b_img->path().c_str(),
                                   state->image_size + 1024 * 1024)));
-  ASSERT_EQ(static_cast<off_t>(state->image_size + 1024 * 1024),
+  ASSERT_EQ(static_cast<off64_t>(state->image_size + 1024 * 1024),
             utils::FileSize(state->b_img->path()));
 
   if (signature_test == kSignatureGeneratedPlaceholder ||
@@ -811,7 +811,7 @@ static void ApplyDeltaFile(bool full_kernel,
   (*performer)->set_public_key_path(public_key_path);
 
   ASSERT_EQ(
-      static_cast<off_t>(state->image_size),
+      static_cast<off64_t>(state->image_size),
       HashCalculator::RawHashOfFile(
           state->a_img->path(), state->image_size, &root_part.source_hash));
   ASSERT_TRUE(HashCalculator::RawHashOfData(state->old_kernel_data,
@@ -935,7 +935,7 @@ void VerifyPayloadResult(DeltaPerformer* performer,
   ASSERT_EQ(state->image_size, partitions[0].target_size);
   brillo::Blob expected_new_rootfs_hash;
   ASSERT_EQ(
-      static_cast<off_t>(state->image_size),
+      static_cast<off64_t>(state->image_size),
       HashCalculator::RawHashOfFile(
           state->b_img->path(), state->image_size, &expected_new_rootfs_hash));
   ASSERT_EQ(expected_new_rootfs_hash, partitions[0].target_hash);

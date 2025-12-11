@@ -84,7 +84,7 @@ uint64_t EintrSafeFileDescriptor::BlockDevSize() {
   }
   if (!S_ISBLK(stbuf.st_mode))
     return 0;
-  off_t block_size = utils::BlockDevSize(fd_);
+  off64_t block_size = utils::BlockDevSize(fd_);
   return block_size < 0 ? 0 : block_size;
 }
 

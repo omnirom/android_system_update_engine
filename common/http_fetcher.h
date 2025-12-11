@@ -81,10 +81,10 @@ class HttpFetcher {
   void PopProxy() { proxies_.pop_front(); }
 
   // Downloading should resume from this offset
-  virtual void SetOffset(off_t offset) = 0;
+  virtual void SetOffset(off64_t offset) = 0;
 
   // Set/unset the length of the range to be downloaded.
-  virtual void SetLength(size_t length) = 0;
+  virtual void SetLength(uint64_t length) = 0;
   virtual void UnsetLength() = 0;
 
   // Begins the transfer to the specified URL. This fetcher instance should not
@@ -138,7 +138,7 @@ class HttpFetcher {
   virtual void set_max_retry_count(int max_retry_count) = 0;
 
   // Get the total number of bytes downloaded by fetcher.
-  virtual size_t GetBytesDownloaded() = 0;
+  virtual uint64_t GetBytesDownloaded() = 0;
 
  protected:
   // The URL we're actively fetching from
@@ -190,7 +190,7 @@ class HttpFetcherDelegate {
                              size_t length) = 0;
 
   // Called if the fetcher seeks to a particular offset.
-  virtual void SeekToOffset(off_t offset) {}
+  virtual void SeekToOffset(off64_t offset) {}
 
   // When a transfer has completed, exactly one of these two methods will be
   // called. TransferTerminated is called when the transfer has been aborted

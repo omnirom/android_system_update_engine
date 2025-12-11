@@ -17,6 +17,7 @@
 #ifndef UPDATE_ENGINE_LIBCURL_HTTP_FETCHER_H_
 #define UPDATE_ENGINE_LIBCURL_HTTP_FETCHER_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -87,9 +88,9 @@ class LibcurlHttpFetcher : public HttpFetcher {
   // Cleans up all internal state. Does not notify delegate
   ~LibcurlHttpFetcher() override;
 
-  void SetOffset(off_t offset) override { bytes_downloaded_ = offset; }
+  void SetOffset(off64_t offset) override { bytes_downloaded_ = offset; }
 
-  void SetLength(size_t length) override { download_length_ = length; }
+  void SetLength(uint64_t length) override { download_length_ = length; }
   void UnsetLength() override { SetLength(0); }
 
   // Begins the transfer if it hasn't already begun.
@@ -136,9 +137,7 @@ class LibcurlHttpFetcher : public HttpFetcher {
     server_to_check_ = server_to_check;
   }
 
-  size_t GetBytesDownloaded() override {
-    return static_cast<size_t>(bytes_downloaded_);
-  }
+  uint64_t GetBytesDownloaded() override { return bytes_downloaded_; };
 
   void set_low_speed_limit(int low_speed_bps, int low_speed_sec) override {
     low_speed_limit_bps_ = low_speed_bps;
@@ -203,7 +202,7 @@ class LibcurlHttpFetcher : public HttpFetcher {
   void SetupMessageLoopSources();
 
   // Callback called by libcurl when new data has arrived on the transfer
-  size_t LibcurlWrite(void* ptr, size_t size, size_t nmemb);
+  uint64_t LibcurlWrite(void* ptr, size_t size, size_t nmemb);
   static size_t StaticLibcurlWrite(void* ptr,
                                    size_t size,
                                    size_t nmemb,
@@ -270,20 +269,20 @@ class LibcurlHttpFetcher : public HttpFetcher {
   bool restart_transfer_on_unpause_{false};
 
   // The transfer size. -1 if not known.
-  off_t transfer_size_{0};
+  uint64_t transfer_size_{0};
 
   // How many bytes have been downloaded and sent to the delegate.
-  off_t bytes_downloaded_{0};
+  uint64_t bytes_downloaded_{0};
 
   // The remaining maximum number of bytes to download. Zero represents an
   // unspecified length.
-  size_t download_length_{0};
+  uint64_t download_length_{0};
 
   // If we resumed an earlier transfer, data offset that we used for the
   // new connection.  0 otherwise.
   // In this class, resume refers to resuming a dropped HTTP connection,
   // not to resuming an interrupted download.
-  off_t resume_offset_{0};
+  off64_t resume_offset_{0};
 
   // Number of resumes performed so far and the max allowed.
   int retry_count_{0};

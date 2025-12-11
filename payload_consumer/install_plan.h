@@ -17,9 +17,6 @@
 #ifndef UPDATE_ENGINE_PAYLOAD_CONSUMER_INSTALL_PLAN_H_
 #define UPDATE_ENGINE_PAYLOAD_CONSUMER_INSTALL_PLAN_H_
 
-#include <string>
-#include <vector>
-
 #include <android-base/macros.h>
 #include <brillo/secure_blob.h>
 
@@ -52,8 +49,8 @@ struct InstallPlan {
   // |source_slot| and |target_slot| if available. Returns whether it succeeded
   // to load all the partitions for the valid slots.
   bool LoadPartitionsFromSlots(BootControlInterface* boot_control);
-  template <typename PartitinoUpdateArray>
-  static bool ParseManifestToInstallPlan(const PartitinoUpdateArray& partitions,
+  template <typename PartitionUpdateArray>
+  static bool ParseManifestToInstallPlan(const PartitionUpdateArray& partitions,
                                          BootControlInterface* boot_control,
                                          size_t block_size,
                                          InstallPlan* install_plan,
@@ -76,7 +73,6 @@ struct InstallPlan {
   bool vabc_none{false};
   bool disable_vabc{false};
   std::string download_url;  // url to download from
-  std::string version;       // version we are installing.
 
   struct Payload {
     std::vector<std::string> payload_urls;  // URLs to download the payload
@@ -185,10 +181,6 @@ struct InstallPlan {
   // True if the update should write verity.
   // False otherwise.
   bool write_verity{true};
-
-  // If not blank, a base-64 encoded representation of the PEM-encoded
-  // public key in the response.
-  std::string public_key_rsa;
 
   // The name of dynamic partitions not included in the payload. Only used
   // for partial updates.

@@ -20,7 +20,6 @@
 
 #include <base/files/file_path.h>
 #include <base/metrics/statistics_recorder.h>
-#include <android-base/stringprintf.h>
 
 #include "update_engine/common/boot_control_interface.h"
 #include "update_engine/common/error_code_utils.h"
@@ -59,7 +58,7 @@ void DownloadAction::PerformAction() {
   install_plan_.Dump();
 
   bytes_received_ = 0;
-  bytes_received_previous_payloads_ = 0;
+
   bytes_total_ = 0;
   for (const auto& payload : install_plan_.payloads)
     bytes_total_ += payload.size;
@@ -205,7 +204,7 @@ void DownloadAction::TerminateProcessing() {
   http_fetcher_->TerminateTransfer();
 }
 
-void DownloadAction::SeekToOffset(off_t offset) {
+void DownloadAction::SeekToOffset(off64_t offset) {
   bytes_received_ = offset;
 }
 
@@ -213,8 +212,7 @@ bool DownloadAction::ReceivedBytes(HttpFetcher* fetcher,
                                    const void* bytes,
                                    size_t length) {
   bytes_received_ += length;
-  uint64_t bytes_downloaded_total =
-      bytes_received_previous_payloads_ + bytes_received_;
+  uint64_t bytes_downloaded_total = bytes_received_;
   if (delegate_ && download_active_) {
     delegate_->BytesReceived(
         length, bytes_downloaded_total - base_offset_, bytes_total_);

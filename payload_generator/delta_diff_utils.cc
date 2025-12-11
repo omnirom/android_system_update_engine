@@ -1152,7 +1152,7 @@ bool InitializePartitionInfo(const PartitionConfig& part, PartitionInfo* info) {
   info->set_size(part.size);
   HashCalculator hasher;
   TEST_AND_RETURN_FALSE(hasher.UpdateFile(part.path, part.size) ==
-                        static_cast<off_t>(part.size));
+                        static_cast<off64_t>(part.size));
   TEST_AND_RETURN_FALSE(hasher.Finalize());
   const brillo::Blob& hash = hasher.raw_hash();
   info->set_hash(hash.data(), hash.size());

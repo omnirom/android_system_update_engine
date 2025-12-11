@@ -20,9 +20,7 @@
 #include <fcntl.h>
 #include <time.h>
 
-#include <array>
 #include <string>
-#include <mutex>
 
 #include <android-base/unique_fd.h>
 #include <erofs/dir.h>
@@ -87,7 +85,7 @@ static void FillExtentInfo(FilesystemInterface::File* p_file,
                            size_t* const unaligned_bytes) {
   auto& file = *p_file;
 
-  struct erofs_map_blocks block {};
+  struct erofs_map_blocks block{};
   block.m_la = 0;
   block.index = UINT_MAX;
 
@@ -123,7 +121,6 @@ static void FillExtentInfo(FilesystemInterface::File* p_file,
     // bytes in the logical size as well.
     if (!IsBlockCompressed(block)) {
       CHECK_LE(block.m_llen, block.m_plen);
-      block.m_llen = block.m_plen;
     }
 
     if (last_pa + last_plen != block.m_pa) {
@@ -137,6 +134,15 @@ static void FillExtentInfo(FilesystemInterface::File* p_file,
       last_plen += block.m_plen;
     }
     if (file.is_compressed) {
+      if (!compressed_blocks.empty()) {
+        const auto& last_block = compressed_blocks.back();
+        CHECK_EQ(
+            last_block.uncompressed_offset + last_block.uncompressed_length,
+            block.m_la)
+            << " " << file.name
+            << " last block: " << last_block.uncompressed_offset << " "
+            << last_block.uncompressed_length;
+      }
       // If logical size and physical size are the same, this block is
       // uncompressed. Join consecutive uncompressed blocks to save a bit memory
       // storing metadata.
@@ -150,7 +156,13 @@ static void FillExtentInfo(FilesystemInterface::File* p_file,
       }
     }
   }
-  if (last_plen != 0) {
+  // Only include a partial block if its size is
+  // bigger than half of a block, this makes sure
+  // the same block would not be claimed by two
+  // different files, as there can't be two files
+  // residing on the same block and each file has
+  // greater than half of block size.
+  if (static_cast<size_t>(last_plen) > kBlockSize / 2) {
     file.extents.push_back(ExtentForRange(
         last_pa / kBlockSize, utils::DivRoundUp(last_plen, kBlockSize)));
   }
@@ -173,7 +185,7 @@ std::unique_ptr<ErofsFilesystem> ErofsFilesystem::CreateFromFile(
   if (!IsErofsImage(filename.c_str())) {
     return {};
   }
-  struct erofs_sb_info sbi {};
+  struct erofs_sb_info sbi{};
 
   if (const auto err = erofs_dev_open(&sbi, filename.c_str(), O_RDONLY); err) {
     PLOG(INFO) << "Failed to open " << filename;
@@ -188,7 +200,7 @@ std::unique_ptr<ErofsFilesystem> ErofsFilesystem::CreateFromFile(
     return nullptr;
   }
   const auto block_size = 1UL << sbi.blkszbits;
-  struct stat st {};
+  struct stat st{};
   if (const auto err = stat(filename.c_str(), &st); err) {
     PLOG(ERROR) << "Failed to stat() " << filename;
     return nullptr;
@@ -225,7 +237,7 @@ bool ErofsFilesystem::GetFiles(struct erofs_sb_info* sbi,
         if (info.ctx.de_ftype != EROFS_FT_REG_FILE) {
           return 0;
         }
-        struct erofs_inode inode {};
+        struct erofs_inode inode{};
         inode.nid = info.ctx.de_nid;
         inode.sbi = sbi;
         int err = erofs_read_inode_from_disk(&inode);
@@ -259,7 +271,9 @@ bool ErofsFilesystem::GetFiles(struct erofs_sb_info* sbi,
         FillExtentInfo(&file, filename, &inode, &unaligned_bytes);
         file.compressed_file_info.algo = algo;
 
-        files->emplace_back(std::move(file));
+        if (!file.extents.empty()) {
+          files->emplace_back(std::move(file));
+        }
         return 0;
       });
   if (err) {

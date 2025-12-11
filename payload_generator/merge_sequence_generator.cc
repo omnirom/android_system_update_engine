@@ -333,7 +333,6 @@ MergeSequenceGenerator::FindDependency(
       std::set<CowMergeOperation> operations(lower_it, upper_it);
       auto it = operations.find(op);
       if (it != operations.end()) {
-        LOG(INFO) << "Self overlapping " << op;
         operations.erase(it);
       }
       auto ret = merge_after.emplace(op, std::move(operations));

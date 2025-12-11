@@ -76,7 +76,7 @@ using std::string;
 namespace chromeos_update_engine {
 
 namespace {
-const off_t kReadFileBufferSize = 128 * 1024;
+const off64_t kReadFileBufferSize = 128 * 1024;
 constexpr float kVerityProgressPercent = 0.3;
 constexpr float kEncodeFECPercent = 0.3;
 

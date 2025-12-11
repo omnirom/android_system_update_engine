@@ -77,10 +77,7 @@ using android::snapshot::UpdateState;
 namespace chromeos_update_engine {
 
 constexpr char kUseDynamicPartitions[] = "ro.boot.dynamic_partitions";
-constexpr char kRetrfoitDynamicPartitions[] =
-    "ro.boot.dynamic_partitions_retrofit";
 constexpr char kVirtualAbEnabled[] = "ro.virtual_ab.enabled";
-constexpr char kVirtualAbRetrofit[] = "ro.virtual_ab.retrofit";
 constexpr char kVirtualAbCompressionEnabled[] =
     "ro.virtual_ab.compression.enabled";
 constexpr auto&& kVirtualAbCompressionXorEnabled =
@@ -131,9 +128,8 @@ static FeatureFlag GetFeatureFlag(const char* enable_prop,
 
 DynamicPartitionControlAndroid::DynamicPartitionControlAndroid(
     uint32_t source_slot)
-    : dynamic_partitions_(
-          GetFeatureFlag(kUseDynamicPartitions, kRetrfoitDynamicPartitions)),
-      virtual_ab_(GetFeatureFlag(kVirtualAbEnabled, kVirtualAbRetrofit)),
+    : dynamic_partitions_(GetFeatureFlag(kUseDynamicPartitions, nullptr)),
+      virtual_ab_(GetFeatureFlag(kVirtualAbEnabled, nullptr)),
       virtual_ab_compression_(GetFeatureFlag(kVirtualAbCompressionEnabled,
                                              kVirtualAbCompressionRetrofit)),
       virtual_ab_compression_xor_(
@@ -360,6 +356,7 @@ void DynamicPartitionControlAndroid::Cleanup() {
   if (GetVirtualAbFeatureFlag().IsEnabled()) {
     // Release ISnapshotManager instance so GSID can be gracefully shutdown
     snapshot_ = nullptr;
+    LOG(INFO) << "SnapshotManager released";
   }
 }
 
@@ -426,24 +423,15 @@ bool DynamicPartitionControlAndroid::StoreMetadata(
     return false;
   }
 
-  if (GetDynamicPartitionsFeatureFlag().IsRetrofit()) {
-    if (!FlashPartitionTable(super_device, *metadata)) {
-      LOG(ERROR) << "Cannot write metadata to " << super_device;
-      return false;
-    }
-    LOG(INFO) << "Written metadata to " << super_device;
-  } else {
-    if (!UpdatePartitionTable(super_device, *metadata, target_slot)) {
-      LOG(ERROR) << "Cannot write metadata to slot "
-                 << BootControlInterface::SlotName(target_slot) << " in "
-                 << super_device;
-      return false;
-    }
-    LOG(INFO) << "Copied metadata to slot "
-              << BootControlInterface::SlotName(target_slot) << " in "
-              << super_device;
+  if (!UpdatePartitionTable(super_device, *metadata, target_slot)) {
+    LOG(ERROR) << "Cannot write metadata to slot "
+               << BootControlInterface::SlotName(target_slot) << " in "
+               << super_device;
+    return false;
   }
-
+  LOG(INFO) << "Copied metadata to slot "
+            << BootControlInterface::SlotName(target_slot) << " in "
+            << super_device;
   return true;
 }
 
@@ -730,19 +718,6 @@ bool DynamicPartitionControlAndroid::GetSystemOtherPath(
     return true;
   }
 
-  if (!IsRecovery()) {
-    // Found unexpected avb_keys for system_other on devices retrofitting
-    // dynamic partitions. Previous crash in update_engine may leave logical
-    // partitions mapped on physical system_other partition. It is difficult to
-    // handle these cases. Just fail.
-    if (GetDynamicPartitionsFeatureFlag().IsRetrofit()) {
-      LOG(ERROR) << "Cannot erase AVB footer on system_other on devices with "
-                 << "retrofit dynamic partitions. They should not have AVB "
-                 << "enabled on system_other.";
-      return false;
-    }
-  }
-
   std::string device_dir_str;
   TEST_AND_RETURN_FALSE(GetDeviceDir(&device_dir_str));
   base::FilePath device_dir(device_dir_str);
@@ -754,8 +729,7 @@ bool DynamicPartitionControlAndroid::GetSystemOtherPath(
     return true;
   }
 
-  auto source_super_device =
-      device_dir.Append(GetSuperPartitionName(source_slot)).value();
+  auto source_super_device = device_dir.Append(GetSuperPartitionName()).value();
 
   auto builder = LoadMetadataBuilder(source_super_device, source_slot);
   if (builder == nullptr) {
@@ -879,8 +853,7 @@ bool DynamicPartitionControlAndroid::PrepareDynamicPartitionsForUpdate(
   std::string device_dir_str;
   TEST_AND_RETURN_FALSE(GetDeviceDir(&device_dir_str));
   base::FilePath device_dir(device_dir_str);
-  auto source_device =
-      device_dir.Append(GetSuperPartitionName(source_slot)).value();
+  auto source_device = device_dir.Append(GetSuperPartitionName()).value();
 
   auto builder = LoadMetadataBuilder(source_device, source_slot, target_slot);
   if (builder == nullptr) {
@@ -897,21 +870,13 @@ bool DynamicPartitionControlAndroid::PrepareDynamicPartitionsForUpdate(
   TEST_AND_RETURN_FALSE(
       UpdatePartitionMetadata(builder.get(), target_slot, manifest));
 
-  auto target_device =
-      device_dir.Append(GetSuperPartitionName(target_slot)).value();
+  auto target_device = device_dir.Append(GetSuperPartitionName()).value();
 
   return StoreMetadata(target_device, builder.get(), target_slot);
 }
 
 DynamicPartitionControlAndroid::SpaceLimit
 DynamicPartitionControlAndroid::GetSpaceLimit(bool use_snapshot) {
-  // On device retrofitting dynamic partitions, allocatable_space = "super",
-  // where "super" is the sum of all block devices for that slot. Since block
-  // devices are dedicated for the corresponding slot, there's no need to halve
-  // the allocatable space.
-  if (GetDynamicPartitionsFeatureFlag().IsRetrofit())
-    return SpaceLimit::ERROR_IF_EXCEEDED_SUPER;
-
   // On device launching dynamic partitions w/o VAB, regardless of recovery
   // sideload, super partition must be big enough to hold both A and B slots of
   // groups. Hence,
@@ -919,33 +884,7 @@ DynamicPartitionControlAndroid::GetSpaceLimit(bool use_snapshot) {
   if (!GetVirtualAbFeatureFlag().IsEnabled())
     return SpaceLimit::ERROR_IF_EXCEEDED_HALF_OF_SUPER;
 
-  // Source build supports VAB. Super partition must be big enough to hold
-  // one slot of groups (ERROR_IF_EXCEEDED_SUPER). However, there are cases
-  // where additional warning messages needs to be written.
-
-  // If using snapshot updates, implying that target build also uses VAB,
-  // allocatable_space = super
-  if (use_snapshot)
-    return SpaceLimit::ERROR_IF_EXCEEDED_SUPER;
-
-  // Source build supports VAB but not using snapshot updates. There are
-  // several cases, as listed below.
-  // Sideloading: allocatable_space = super.
-  if (IsRecovery())
-    return SpaceLimit::ERROR_IF_EXCEEDED_SUPER;
-
-  // On launch VAB device, this implies secondary payload.
-  // Technically, we don't have to check anything, but sum(groups) < super
-  // still applies.
-  if (!GetVirtualAbFeatureFlag().IsRetrofit())
-    return SpaceLimit::ERROR_IF_EXCEEDED_SUPER;
-
-  // On retrofit VAB device, either of the following:
-  // - downgrading: allocatable_space = super / 2
-  // - secondary payload: don't check anything
-  // These two cases are indistinguishable,
-  // hence emit warning if sum(groups) > super / 2
-  return SpaceLimit::WARN_IF_EXCEEDED_HALF_OF_SUPER;
+  return SpaceLimit::ERROR_IF_EXCEEDED_SUPER;
 }
 
 bool DynamicPartitionControlAndroid::CheckSuperPartitionAllocatableSpace(
@@ -1001,9 +940,9 @@ DynamicPartitionControlAndroid::GetSnapshotManager() {
     } else {
       snapshot_ = SnapshotManagerStub::New();
     }
+    LOG(INFO) << "SnapshotManager initialized.";
   }
   CHECK(snapshot_ != nullptr) << "Cannot initialize SnapshotManager.";
-  LOG(INFO) << "SnapshotManager initialized.";
   return snapshot_.get();
 }
 
@@ -1017,8 +956,7 @@ bool DynamicPartitionControlAndroid::PrepareSnapshotPartitionsForUpdate(
   std::string device_dir_str;
   TEST_AND_RETURN_FALSE(GetDeviceDir(&device_dir_str));
   base::FilePath device_dir(device_dir_str);
-  auto super_device =
-      device_dir.Append(GetSuperPartitionName(source_slot)).value();
+  auto super_device = device_dir.Append(GetSuperPartitionName()).value();
   auto builder = LoadMetadataBuilder(super_device, source_slot);
   if (builder == nullptr) {
     LOG(ERROR) << "No metadata at "
@@ -1045,9 +983,8 @@ bool DynamicPartitionControlAndroid::PrepareSnapshotPartitionsForUpdate(
   return true;
 }
 
-std::string DynamicPartitionControlAndroid::GetSuperPartitionName(
-    uint32_t slot) {
-  return fs_mgr_get_super_partition_name(slot);
+std::string DynamicPartitionControlAndroid::GetSuperPartitionName() {
+  return fs_mgr_get_super_partition_name();
 }
 
 bool DynamicPartitionControlAndroid::UpdatePartitionMetadata(
@@ -1252,7 +1189,7 @@ bool DynamicPartitionControlAndroid::IsSuperBlockDevice(
     uint32_t current_slot,
     const std::string& partition_name_suffix) {
   std::string source_device =
-      device_dir.Append(GetSuperPartitionName(current_slot)).value();
+      device_dir.Append(GetSuperPartitionName()).value();
   auto source_metadata = LoadMetadataBuilder(source_device, current_slot);
   return source_metadata->HasBlockDevice(partition_name_suffix);
 }
@@ -1265,8 +1202,7 @@ DynamicPartitionControlAndroid::GetDynamicPartitionDevice(
     uint32_t current_slot,
     bool not_in_payload,
     std::string* device) {
-  std::string super_device =
-      device_dir.Append(GetSuperPartitionName(slot)).value();
+  std::string super_device = device_dir.Append(GetSuperPartitionName()).value();
   auto device_name = GetDeviceName(partition_name_suffix, slot);
 
   auto builder = LoadMetadataBuilder(super_device, slot);
@@ -1421,7 +1357,7 @@ bool DynamicPartitionControlAndroid::ListDynamicPartitionsForSlot(
   std::string device_dir_str;
   TEST_AND_RETURN_FALSE(GetDeviceDir(&device_dir_str));
   base::FilePath device_dir(device_dir_str);
-  auto super_device = device_dir.Append(GetSuperPartitionName(slot)).value();
+  auto super_device = device_dir.Append(GetSuperPartitionName()).value();
   auto builder = LoadMetadataBuilder(super_device, slot);
   TEST_AND_RETURN_FALSE(builder != nullptr);
 
@@ -1448,13 +1384,11 @@ bool DynamicPartitionControlAndroid::VerifyExtentsForUntouchedPartitions(
   TEST_AND_RETURN_FALSE(GetDeviceDir(&device_dir_str));
   base::FilePath device_dir(device_dir_str);
 
-  auto source_super_device =
-      device_dir.Append(GetSuperPartitionName(source_slot)).value();
+  auto source_super_device = device_dir.Append(GetSuperPartitionName()).value();
   auto source_builder = LoadMetadataBuilder(source_super_device, source_slot);
   TEST_AND_RETURN_FALSE(source_builder != nullptr);
 
-  auto target_super_device =
-      device_dir.Append(GetSuperPartitionName(target_slot)).value();
+  auto target_super_device = device_dir.Append(GetSuperPartitionName()).value();
   auto target_builder = LoadMetadataBuilder(target_super_device, target_slot);
   TEST_AND_RETURN_FALSE(target_builder != nullptr);
 
@@ -1491,7 +1425,7 @@ bool DynamicPartitionControlAndroid::EnsureMetadataMounted() {
 
 std::unique_ptr<android::snapshot::ICowWriter>
 DynamicPartitionControlAndroid::OpenCowWriter(
-    const std::string& partition_name,
+    const std::string& unsuffixed_partition_name,
     const std::optional<std::string>& source_path,
     std::optional<uint64_t> label) {
   auto suffix = SlotSuffixForSlotNumber(target_slot_);
@@ -1503,7 +1437,7 @@ DynamicPartitionControlAndroid::OpenCowWriter(
   CreateLogicalPartitionParams params = {
       .block_device = super_device->value(),
       .metadata_slot = target_slot_,
-      .partition_name = partition_name + suffix,
+      .partition_name = unsuffixed_partition_name + suffix,
       .force_writable = true,
       .timeout_ms = kMapSnapshotTimeout};
   // TODO(zhangkelvin) Open an APPEND mode CowWriter once there's an API to do
@@ -1537,7 +1471,7 @@ std::optional<base::FilePath> DynamicPartitionControlAndroid::GetSuperDevice() {
     return {};
   }
   base::FilePath device_dir(device_dir_str);
-  auto super_device = device_dir.Append(GetSuperPartitionName(target_slot_));
+  auto super_device = device_dir.Append(GetSuperPartitionName());
   return super_device;
 }
 
@@ -1572,7 +1506,7 @@ bool DynamicPartitionControlAndroid::IsDynamicPartition(
 
 bool DynamicPartitionControlAndroid::UpdateUsesSnapshotCompression() {
   return GetVirtualAbFeatureFlag().IsEnabled() &&
-         GetSnapshotManager()->UpdateUsesCompression();
+         GetSnapshotManager()->UpdateUsesSnapuserd();
 }
 
 FeatureFlag

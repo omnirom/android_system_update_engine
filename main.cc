@@ -19,8 +19,6 @@
 #include <sys/types.h>
 #include <xz.h>
 
-#include <base/at_exit.h>
-#include <base/command_line.h>
 #include <base/logging.h>
 #include <gflags/gflags.h>
 

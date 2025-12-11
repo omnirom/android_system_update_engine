@@ -50,6 +50,7 @@ with source and destination builds. This script requires target_file.zip to work
 image files are not sufficient.
 
 ### Distribution/Configuration
+
 Once the OTA packages are generated, they are signed with specific keys
 and stored in a location known to an update server (GOTA).
 GOTA will then make this OTA package accessible via a public URL. Optionally,
@@ -57,6 +58,7 @@ operators an choose to make this OTA update available only to a specific
 subset of devices.
 
 ### Installation
+
 When the device's updater client initiates an update (either periodically or user
 initiated), it first consults different device policies to see if the update
 check is allowed. For example, device policies can prevent an update check
@@ -67,8 +69,8 @@ Once policies allow for the update check, the updater client sends a request to
 the update server (all this communication happens over HTTPS) and identifies its
 parameters like its Application ID, hardware ID, version, board, etc.
 
-Some policities on the server might prevent the device from getting specific
-OTA updates, these server side policities are often set by operators. For
+Some policies on the server might prevent the device from getting specific
+OTA updates, these server side policies are often set by operators. For
 example, the operator might want to deliver a beta version of software to only
 a subset of devices.
 
@@ -81,7 +83,9 @@ the update, or reports that the update failed with specific error codes, etc.
 
 The device will then proceed to actually installing the OTA update. This consists
 of roughly 3 steps.
+
 #### Download & Install
+
 Each payload consists of two main sections: metadata and extra data. The
 metadata is basically a list of operations that should be performed for an
 update. The extra data contains the data blobs needed by some or all of these
@@ -111,7 +115,7 @@ payload). If the signature cannot be verified, the update is rejected.
 
 After the inactive partition is updated, the updater client will compute
 Forward-Error-Correction(also known as FEC, Verity) code for each partition,
-and wriee the computed verity data to inactive partitions. In some updates,
+and write the computed verity data to inactive partitions. In some updates,
 verity data is included in the extra data, so this step will be skipped.
 
 Then, the entire partition is re-read, hashed and compared to a hash value

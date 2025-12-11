@@ -21,6 +21,11 @@
         <option name="cleanup" value="true" />
         <option name="push" value="update_engine_unittests->/data/nativetest/update_engine_unittests" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="throw-if-cmd-fail" value="true" />
+        <option name="run-command" value="enable-verity" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RebootTargetPreparer" />
 
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/nativetest" />

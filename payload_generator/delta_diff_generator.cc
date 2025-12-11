@@ -179,7 +179,7 @@ bool GenerateUpdatePayloadFile(const PayloadGenerationConfig& config,
 
   ScopedTempFile data_file("CrAU_temp_data.XXXXXX", true);
   {
-    off_t data_file_size = 0;
+    off64_t data_file_size = 0;
     BlobFileWriter blob_file(data_file.fd(), &data_file_size);
     if (config.is_delta) {
       TEST_EQ(config.source.partitions.size(), config.target.partitions.size());

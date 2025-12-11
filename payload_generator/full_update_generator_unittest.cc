@@ -52,7 +52,7 @@ class FullUpdateGeneratorTest : public ::testing::Test {
   vector<AnnotatedOperation> aops;
 
   // Output file holding the payload blobs.
-  off_t out_blobs_length_{0};
+  off64_t out_blobs_length_{0};
   ScopedTempFile part_file_{"FullUpdateTest_partition.XXXXXX"};
 
   ScopedTempFile blob_file_{"FullUpdateTest_blobs.XXXXXX", true};
@@ -76,7 +76,7 @@ TEST_F(FullUpdateGeneratorTest, RunTest) {
                                             &aops));
   int64_t new_part_chunks = new_part_conf.size / config_.hard_chunk_size;
   EXPECT_EQ(new_part_chunks, static_cast<int64_t>(aops.size()));
-  for (off_t i = 0; i < new_part_chunks; ++i) {
+  for (off64_t i = 0; i < new_part_chunks; ++i) {
     EXPECT_EQ(1, aops[i].op.dst_extents_size());
     EXPECT_EQ(
         static_cast<uint64_t>(i * config_.hard_chunk_size / config_.block_size),

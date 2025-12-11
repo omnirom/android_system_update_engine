@@ -19,7 +19,6 @@
 #include "update_engine/common/utils.h"
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
-#include "update_engine/payload_generator/payload_generation_config.h"
 
 #include <base/logging.h>
 #include <lz4.h>
@@ -51,9 +50,26 @@ bool TryCompressBlob(std::string_view blob,
     const auto uncompressed_block =
         blob.substr(block.uncompressed_offset, block.uncompressed_length);
     if (!block.IsCompressed()) {
-      TEST_EQ(sink(reinterpret_cast<const uint8_t*>(uncompressed_block.data()),
-                   uncompressed_block.size()),
-              uncompressed_block.size());
+      if (block.compressed_length == block.uncompressed_length) {
+        TEST_EQ(
+            sink(reinterpret_cast<const uint8_t*>(uncompressed_block.data()),
+                 uncompressed_block.size()),
+            uncompressed_block.size());
+      } else {
+        // Some uncompressed blocks have on disk size > logical size
+        // this means the on disk block has unused trailing zeros which
+        // are simply discarded when decompressing. When compressing,
+        // we have to artificlaly "inflate" such block by adding zeros at the
+        // end
+
+        Blob padded_block;
+        padded_block.resize(block.compressed_length);
+        memcpy(padded_block.data(),
+               uncompressed_block.data(),
+               uncompressed_block.size());
+        TEST_EQ(sink(padded_block.data(), padded_block.size()),
+                padded_block.size());
+      }
       continue;
     }
     block_buffer.resize(block.compressed_length);
@@ -176,7 +192,12 @@ Blob TryDecompressBlob(std::string_view blob,
         blob.substr(compressed_offset, block.compressed_length);
     if (!block.IsCompressed()) {
       CHECK_NE(cluster.size(), 0UL);
-      output.insert(output.end(), cluster.begin(), cluster.end());
+      // Some uncompressed blocks have logical size < physical size,
+      // and the physical block just fills with trailing 0s. Not sure why
+      CHECK_LE(block.uncompressed_length, cluster.size());
+      output.insert(output.end(),
+                    cluster.begin(),
+                    cluster.begin() + block.uncompressed_length);
       compressed_offset += cluster.size();
       continue;
     }

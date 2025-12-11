@@ -17,9 +17,7 @@
 #ifndef UPDATE_ENGINE_COMMON_FILE_FETCHER_H_
 #define UPDATE_ENGINE_COMMON_FILE_FETCHER_H_
 
-#include <memory>
 #include <string>
-#include <utility>
 
 #include <base/logging.h>
 #include <android-base/macros.h>
@@ -43,8 +41,8 @@ class FileFetcher : public HttpFetcher {
   ~FileFetcher() override;
 
   // HttpFetcher overrides.
-  void SetOffset(off_t offset) override { offset_ = offset; }
-  void SetLength(size_t length) override { data_length_ = length; }
+  void SetOffset(off64_t offset) override { offset_ = offset; }
+  void SetLength(uint64_t length) override { data_length_ = length; }
   void UnsetLength() override { SetLength(0); }
 
   // Begins the transfer if it hasn't already begun.
@@ -70,9 +68,7 @@ class FileFetcher : public HttpFetcher {
   // Resume the suspended file read.
   void Unpause() override;
 
-  size_t GetBytesDownloaded() override {
-    return static_cast<size_t>(bytes_copied_);
-  }
+  uint64_t GetBytesDownloaded() override { return bytes_copied_; }
 
   // Ignore all the time limits for files.
   void set_low_speed_limit(int low_speed_bps, int low_speed_sec) override {}

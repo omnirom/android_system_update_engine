@@ -1106,7 +1106,7 @@ class MultiHttpFetcherTestDelegate : public HttpFetcherDelegate {
 void MultiTest(HttpFetcher* fetcher_in,
                FakeHardware* fake_hardware,
                const string& url,
-               const vector<pair<off_t, off_t>>& ranges,
+               const vector<pair<off64_t, off64_t>>& ranges,
                const string& expected_prefix,
                size_t expected_size,
                HttpResponseCode expected_response_code) {
@@ -1117,7 +1117,7 @@ void MultiTest(HttpFetcher* fetcher_in,
       static_cast<MultiRangeHttpFetcher*>(fetcher_in);
   ASSERT_TRUE(multi_fetcher);
   multi_fetcher->ClearRanges();
-  for (vector<pair<off_t, off_t>>::const_iterator it = ranges.begin(),
+  for (vector<pair<off64_t, off64_t>>::const_iterator it = ranges.begin(),
                                                   e = ranges.end();
        it != e;
        ++it) {
@@ -1150,7 +1150,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherSimpleTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(0, 25));
   ranges.push_back(make_pair(99, 17));
   MultiTest(this->test_.NewLargeFetcher(),
@@ -1170,7 +1170,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherUnspecifiedEndTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(0, 25));
   ranges.push_back(make_pair(99, 0));
   MultiTest(this->test_.NewLargeFetcher(),
@@ -1189,7 +1189,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherLengthLimitTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(0, 24));
   MultiTest(this->test_.NewLargeFetcher(),
             this->test_.fake_hardware(),
@@ -1208,7 +1208,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherMultiEndTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(kBigLength - 2, 0));
   ranges.push_back(make_pair(kBigLength - 3, 0));
   MultiTest(this->test_.NewLargeFetcher(),
@@ -1227,7 +1227,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherInsufficientTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(kBigLength - 2, 4));
   for (int i = 0; i < 2; ++i) {
     LOG(INFO) << "i = " << i;
@@ -1254,7 +1254,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherErrorIfOffsetRecoverableTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(0, 25));
   ranges.push_back(make_pair(99, 0));
   MultiTest(this->test_.NewLargeFetcher(3),
@@ -1277,7 +1277,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherErrorIfOffsetUnrecoverableTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  vector<pair<off_t, off_t>> ranges;
+  vector<pair<off64_t, off64_t>> ranges;
   ranges.push_back(make_pair(0, 25));
   ranges.push_back(make_pair(99, 0));
   MultiTest(this->test_.NewLargeFetcher(),

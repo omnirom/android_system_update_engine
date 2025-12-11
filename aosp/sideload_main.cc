@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 
-#include <base/command_line.h>
 #include <base/strings/string_split.h>
 #include <android-base/stringprintf.h>
 #include <brillo/asynchronous_signal_handler.h>

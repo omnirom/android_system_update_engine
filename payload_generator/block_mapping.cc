@@ -45,7 +45,7 @@ BlockMapping::BlockId BlockMapping::AddBlock(const brillo::Blob& block_data) {
   return AddBlock(-1, 0, block_data);
 }
 
-BlockMapping::BlockId BlockMapping::AddDiskBlock(int fd, off_t byte_offset) {
+BlockMapping::BlockId BlockMapping::AddDiskBlock(int fd, off64_t byte_offset) {
   brillo::Blob blob(block_size_);
   ssize_t bytes_read = 0;
   if (!utils::PReadAll(fd, blob.data(), block_size_, byte_offset, &bytes_read))
@@ -56,7 +56,7 @@ BlockMapping::BlockId BlockMapping::AddDiskBlock(int fd, off_t byte_offset) {
 }
 
 bool BlockMapping::AddManyDiskBlocks(int fd,
-                                     off_t initial_byte_offset,
+                                     off64_t initial_byte_offset,
                                      size_t num_blocks,
                                      vector<BlockId>* block_ids) {
   bool ret = true;
@@ -70,7 +70,7 @@ bool BlockMapping::AddManyDiskBlocks(int fd,
 }
 
 BlockMapping::BlockId BlockMapping::AddBlock(int fd,
-                                             off_t byte_offset,
+                                             off64_t byte_offset,
                                              const brillo::Blob& block_data) {
   if (block_data.size() != block_size_)
     return -1;

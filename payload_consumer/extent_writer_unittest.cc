@@ -38,7 +38,7 @@ using std::vector;
 
 namespace chromeos_update_engine {
 
-static_assert(sizeof(off_t) == 8, "off_t not 64 bit");
+static_assert(sizeof(off64_t) == 8, "off64_t not 64 bit");
 
 namespace {
 const size_t kBlockSize = 4096;
@@ -69,7 +69,7 @@ TEST_F(ExtentWriterTest, SimpleTest) {
   EXPECT_TRUE(direct_writer.Init({extents.begin(), extents.end()}, kBlockSize));
   EXPECT_TRUE(direct_writer.Write(bytes.data(), bytes.size()));
 
-  EXPECT_EQ(static_cast<off_t>(kBlockSize + bytes.size()),
+  EXPECT_EQ(static_cast<off64_t>(kBlockSize + bytes.size()),
             utils::FileSize(temp_file_.path()));
 
   brillo::Blob result_file;
@@ -120,7 +120,7 @@ void ExtentWriterTest::WriteAlignedExtents(size_t chunk_size,
     bytes_written += bytes_to_write;
   }
 
-  EXPECT_EQ(static_cast<off_t>(data.size()),
+  EXPECT_EQ(static_cast<off64_t>(data.size()),
             utils::FileSize(temp_file_.path()));
 
   brillo::Blob result_file;
@@ -159,7 +159,7 @@ TEST_F(ExtentWriterTest, SparseFileTest) {
   }
 
   // check file size, then data inside
-  ASSERT_EQ(static_cast<off_t>(2 * kBlockSize),
+  ASSERT_EQ(static_cast<off64_t>(2 * kBlockSize),
             utils::FileSize(temp_file_.path()));
 
   brillo::Blob resultant_data;

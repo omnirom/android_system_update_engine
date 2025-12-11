@@ -47,7 +47,7 @@ class HashCalculator {
   // Updates the hash with up to |length| bytes of data from |file|. If |length|
   // is negative, reads in and updates with the whole file. Returns the number
   // of bytes that the hash was updated with, or -1 on error.
-  off_t UpdateFile(const std::string& name, off_t length);
+  off64_t UpdateFile(const std::string& name, off64_t length);
 
   // Call Finalize() when all data has been passed in. This method tells
   // OpenSSL that no more data will come in.
@@ -72,8 +72,8 @@ class HashCalculator {
                              size_t length,
                              brillo::Blob* out_hash);
   static bool RawHashOfData(const brillo::Blob& data, brillo::Blob* out_hash);
-  static off_t RawHashOfFile(const std::string& name,
-                             off_t length,
+  static off64_t RawHashOfFile(const std::string& name,
+                             off64_t length,
                              brillo::Blob* out_hash);
   static bool RawHashOfFile(const std::string& name, brillo::Blob* out_hash);
   static std::string SHA256Digest(std::string_view blob);

@@ -142,6 +142,12 @@ class UpdateAttempterAndroid final
  private:
   friend class UpdateAttempterAndroidTest;
 
+  // Cancel currently running optional postinstall actions
+  // A postinstall is optional if it only contains 1 partition,
+  // as in that case it's most likely triggered by `triggerPostinstall`
+  // Return `true` iff current action is canceled.
+  bool CancelOptionalPostinstall();
+
   // Return |true| only if slot switched successfully after an OTA reboot.
   // This will return |false| if an downgrade OTA is applied. Because after a
   // downgrade OTA, we wipe /data, and there's no way for update_engine to

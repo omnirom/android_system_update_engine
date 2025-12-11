@@ -19,8 +19,6 @@
 #include <base/bind.h>
 #include <base/logging.h>
 
-#include "update_engine/common/boot_control.h"
-
 namespace chromeos_update_engine {
 
 bool UpdateBootFlagsAction::updated_boot_flags_ = false;

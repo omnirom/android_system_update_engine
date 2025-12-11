@@ -28,12 +28,12 @@ class BlobFileWriter {
  public:
   // Create the BlobFileWriter object that will manage the blobs stored to
   // |blob_fd| in a thread safe way.
-  BlobFileWriter(int blob_fd, off_t* blob_file_size)
+  BlobFileWriter(int blob_fd, off64_t* blob_file_size)
       : blob_fd_(blob_fd), blob_file_size_(blob_file_size) {}
 
   // Store the passed |blob| in the blob file. Returns the offset at which it
   // was stored, or -1 in case of failure.
-  off_t StoreBlob(const brillo::Blob& blob);
+  off64_t StoreBlob(const brillo::Blob& blob);
 
   // Increase |total_blobs| by |increment|. Thread safe.
   void IncTotalBlobs(size_t increment);
@@ -44,7 +44,7 @@ class BlobFileWriter {
 
   // The file and its size are protected with the |blob_mutex_|.
   int blob_fd_;
-  off_t* blob_file_size_;
+  off64_t* blob_file_size_;
 
   base::Lock blob_mutex_;
 

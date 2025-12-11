@@ -99,7 +99,7 @@ class DownloadAction : public InstallPlanAction, public HttpFetcherDelegate {
   bool ReceivedBytes(HttpFetcher* fetcher,
                      const void* bytes,
                      size_t length) override;
-  void SeekToOffset(off_t offset) override;
+  void SeekToOffset(off64_t offset) override;
   void TransferComplete(HttpFetcher* fetcher, bool successful) override;
   void TransferTerminated(HttpFetcher* fetcher) override;
 
@@ -143,7 +143,6 @@ class DownloadAction : public InstallPlanAction, public HttpFetcherDelegate {
   // For reporting status to outsiders
   DownloadActionDelegate* delegate_;
   uint64_t bytes_received_{0};  // per file/range
-  uint64_t bytes_received_previous_payloads_{0};
   uint64_t bytes_total_{0};
   bool download_active_{false};
 
@@ -161,7 +160,7 @@ class DownloadAction : public InstallPlanAction, public HttpFetcherDelegate {
 
 // We want to be sure that we're compiled with large file support on linux,
 // just in case we find ourselves downloading large images.
-static_assert(8 == sizeof(off_t), "off_t not 64 bit");
+static_assert(8 == sizeof(off64_t), "off64_t not 64 bit");
 
 }  // namespace chromeos_update_engine
 

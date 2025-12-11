@@ -65,7 +65,7 @@ bool WriteFile(const char* path, const void* data, size_t data_len);
 // Calls write() or pwrite() repeatedly until all count bytes at buf are
 // written to fd or an error occurs. Returns true on success.
 bool WriteAll(int fd, const void* buf, size_t count);
-bool PWriteAll(int fd, const void* buf, size_t count, off_t offset);
+bool PWriteAll(int fd, const void* buf, size_t count, off64_t offset);
 
 bool WriteAll(FileDescriptor* fd, const void* buf, size_t count);
 
@@ -75,7 +75,7 @@ constexpr bool WriteAll(const FileDescriptorPtr& fd,
   return WriteAll(fd.get(), buf, count);
 }
 // WriteAll writes data at specified offset, but it modifies file position.
-bool WriteAll(FileDescriptorPtr* fd, const void* buf, size_t count, off_t off);
+bool WriteAll(FileDescriptorPtr* fd, const void* buf, size_t count, off64_t off);
 
 // https://man7.org/linux/man-pages/man2/pread.2.html
 // PWriteAll writes data at specified offset, but it DOES NOT modify file
@@ -83,7 +83,7 @@ bool WriteAll(FileDescriptorPtr* fd, const void* buf, size_t count, off_t off);
 bool PWriteAll(const FileDescriptorPtr& fd,
                const void* buf,
                size_t count,
-               off_t offset);
+               off64_t offset);
 
 // Calls read() repeatedly until |count| bytes are read or EOF or EWOULDBLOCK
 // is reached. Returns whether all read() calls succeeded (including EWOULDBLOCK
@@ -96,20 +96,20 @@ bool ReadAll(
 // Calls pread() repeatedly until count bytes are read, or EOF is reached.
 // Returns number of bytes read in *bytes_read. Returns true on success.
 bool PReadAll(
-    int fd, void* buf, size_t count, off_t offset, ssize_t* out_bytes_read);
+    int fd, void* buf, size_t count, off64_t offset, ssize_t* out_bytes_read);
 
 // Reads data at specified offset, this function does change file position.
 
 bool ReadAll(FileDescriptor* fd,
              void* buf,
              size_t count,
-             off_t offset,
+             off64_t offset,
              ssize_t* out_bytes_read);
 
 constexpr bool ReadAll(const FileDescriptorPtr& fd,
                        void* buf,
                        size_t count,
-                       off_t offset,
+                       off64_t offset,
                        ssize_t* out_bytes_read) {
   return ReadAll(fd.get(), buf, count, offset, out_bytes_read);
 }
@@ -120,13 +120,13 @@ constexpr bool ReadAll(const FileDescriptorPtr& fd,
 bool PReadAll(FileDescriptor* fd,
               void* buf,
               size_t count,
-              off_t offset,
+              off64_t offset,
               ssize_t* out_bytes_read);
 
 constexpr bool PReadAll(const FileDescriptorPtr& fd,
                         void* buf,
                         size_t count,
-                        off_t offset,
+                        off64_t offset,
                         ssize_t* out_bytes_read) {
   return PReadAll(fd.get(), buf, count, offset, out_bytes_read);
 }
@@ -139,8 +139,8 @@ constexpr bool PReadAll(const FileDescriptorPtr& fd,
 bool ReadFile(const std::string& path, brillo::Blob* out_p);
 bool ReadFile(const std::string& path, std::string* out_p);
 bool ReadFileChunk(const std::string& path,
-                   off_t offset,
-                   off_t size,
+                   off64_t offset,
+                   off64_t size,
                    brillo::Blob* out_p);
 
 // Invokes |cmd| in a pipe and appends its stdout to the container pointed to by
@@ -150,14 +150,14 @@ bool ReadPipe(const std::string& cmd, std::string* out_p);
 
 // Returns the size of the block device at the file descriptor fd. If an error
 // occurs, -1 is returned.
-off_t BlockDevSize(int fd);
+off64_t BlockDevSize(int fd);
 
 // Returns the size of the file at path, or the file descriptor fd. If the file
 // is actually a block device, this function will automatically call
 // BlockDevSize. If the file doesn't exist or some error occurrs, -1 is
 // returned.
-off_t FileSize(const std::string& path);
-off_t FileSize(int fd);
+off64_t FileSize(const std::string& path);
+off64_t FileSize(int fd);
 
 bool SendFile(int out_fd, int in_fd, size_t count);
 
@@ -418,7 +418,7 @@ std::string GetExclusionName(const std::string& str_to_convert);
 ErrorCode IsTimestampNewer(const std::string_view old_version,
                            const std::string_view new_version);
 
-std::unique_ptr<android::base::MappedFile> GetReadonlyZeroBlock(size_t size);
+std::optional<android::base::MappedFile> GetReadonlyZeroBlock(size_t size);
 
 std::string_view GetReadonlyZeroString(size_t size);
 

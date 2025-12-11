@@ -44,7 +44,7 @@ std::unique_ptr<MapfileFilesystem> MapfileFilesystem::CreateFromFile(
   if (filename.empty() || mapfile_filename.empty())
     return nullptr;
 
-  off_t file_size = utils::FileSize(filename);
+  off64_t file_size = utils::FileSize(filename);
   if (file_size < 0)
     return nullptr;
 
@@ -53,7 +53,7 @@ std::unique_ptr<MapfileFilesystem> MapfileFilesystem::CreateFromFile(
                << " which is not multiple of " << kMapfileBlockSize;
     return nullptr;
   }
-  off_t num_blocks = file_size / kMapfileBlockSize;
+  off64_t num_blocks = file_size / kMapfileBlockSize;
 
   if (!utils::FileExists(mapfile_filename.c_str())) {
     LOG(ERROR) << "File " << mapfile_filename << " doesn't exist";
@@ -64,7 +64,7 @@ std::unique_ptr<MapfileFilesystem> MapfileFilesystem::CreateFromFile(
 }
 
 MapfileFilesystem::MapfileFilesystem(const string& mapfile_filename,
-                                     off_t num_blocks)
+                                     off64_t num_blocks)
     : mapfile_filename_(mapfile_filename), num_blocks_(num_blocks) {}
 
 size_t MapfileFilesystem::GetBlockSize() const {

@@ -35,6 +35,7 @@
 #include <brillo/strings/string_utils.h>
 #include <log/log_safetynet.h>
 
+#include "android-base/strings.h"
 #include "update_engine/aosp/cleanup_previous_update_action.h"
 #include "update_engine/common/clock.h"
 #include "update_engine/common/constants.h"
@@ -244,6 +245,9 @@ bool UpdateAttempterAndroid::ApplyPayload(
     int64_t payload_size,
     const vector<string>& key_value_pair_headers,
     Error* error) {
+  LOG(INFO) << "ApplyPayload(" << payload_url << ", " << payload_offset << ", "
+            << payload_size << ") "
+            << android::base::Join(key_value_pair_headers, ", ");
   if (status_ == UpdateStatus::UPDATED_NEED_REBOOT) {
     return LogAndSetError(error,
                           __LINE__,
@@ -251,7 +255,7 @@ bool UpdateAttempterAndroid::ApplyPayload(
                           "An update already applied, waiting for reboot",
                           ErrorCode::kUpdateAlreadyInstalled);
   }
-  if (processor_->IsRunning()) {
+  if (processor_->IsRunning() && !CancelOptionalPostinstall()) {
     return LogAndSetError(error,
                           __LINE__,
                           __FILE__,
@@ -271,7 +275,6 @@ bool UpdateAttempterAndroid::ApplyPayload(
   install_plan_ = InstallPlan();
 
   install_plan_.download_url = payload_url;
-  install_plan_.version = "";
   base_offset_ = payload_offset;
   InstallPlan::Payload payload;
   payload.size = payload_size;
@@ -293,9 +296,6 @@ bool UpdateAttempterAndroid::ApplyPayload(
   // The |payload.type| is not used anymore since minor_version 3.
   payload.type = InstallPayloadType::kUnknown;
   install_plan_.payloads.push_back(payload);
-
-  // The |public_key_rsa| key would override the public key stored on disk.
-  install_plan_.public_key_rsa = "";
 
   install_plan_.hash_checks_mandatory = hardware_->IsOfficialBuild();
   install_plan_.is_resume = !payload_id.empty() &&
@@ -466,6 +466,7 @@ bool UpdateAttempterAndroid::ApplyPayload(
 }
 
 bool UpdateAttempterAndroid::SuspendUpdate(Error* error) {
+  LOG(INFO) << "SuspendUpdate()";
   if (!processor_->IsRunning())
     return LogAndSetGenericError(
         error, __LINE__, __FILE__, "No ongoing update to suspend.");
@@ -474,6 +475,7 @@ bool UpdateAttempterAndroid::SuspendUpdate(Error* error) {
 }
 
 bool UpdateAttempterAndroid::ResumeUpdate(Error* error) {
+  LOG(INFO) << "ResumeUpdate()";
   if (!processor_->IsRunning())
     return LogAndSetGenericError(
         error, __LINE__, __FILE__, "No ongoing update to resume.");
@@ -482,6 +484,7 @@ bool UpdateAttempterAndroid::ResumeUpdate(Error* error) {
 }
 
 bool UpdateAttempterAndroid::CancelUpdate(Error* error) {
+  LOG(INFO) << "CancelUpdate()";
   auto action = processor_->current_action();
   if (action != nullptr &&
       action->Type() == CleanupPreviousUpdateAction::StaticType()) {
@@ -504,7 +507,7 @@ bool UpdateAttempterAndroid::CancelUpdate(Error* error) {
 bool UpdateAttempterAndroid::ResetStatus(Error* error) {
   LOG(INFO) << "Attempting to reset state from "
             << UpdateStatusToString(status_) << " to UpdateStatus::IDLE";
-  if (processor_->IsRunning()) {
+  if (processor_->IsRunning() && !CancelOptionalPostinstall()) {
     return LogAndSetGenericError(
         error,
         __LINE__,
@@ -536,13 +539,11 @@ bool UpdateAttempterAndroid::ResetStatus(Error* error) {
                                  "Failed to reset the status because "
                                  "ClearUpdateCompletedMarker() failed");
   }
-  if (status_ == UpdateStatus::UPDATED_NEED_REBOOT) {
-    if (!resetShouldSwitchSlotOnReboot(error)) {
-      LOG(INFO) << "Failed to reset slot switch.";
-      return false;
-    }
-    LOG(INFO) << "Slot switch reset successful";
+  if (!resetShouldSwitchSlotOnReboot(error)) {
+    LOG(INFO) << "Failed to reset slot switch.";
+    return false;
   }
+  LOG(INFO) << "Slot switch reset successful";
   if (!boot_control_->GetDynamicPartitionControl()->ResetUpdate(prefs_)) {
     LOG(WARNING) << "Failed to reset snapshots. UpdateStatus is IDLE but"
                  << "space might not be freed.";
@@ -675,6 +676,7 @@ bool UpdateAttempterAndroid::VerifyPayloadParseManifest(
 
 bool UpdateAttempterAndroid::VerifyPayloadApplicable(
     const std::string& metadata_filename, Error* error) {
+  LOG(INFO) << "VerifyPayloadApplicable(" << metadata_filename << ")";
   DeltaArchiveManifest manifest;
   TEST_AND_RETURN_FALSE(
       VerifyPayloadParseManifest(metadata_filename, &manifest, error));
@@ -1178,7 +1180,7 @@ void UpdateAttempterAndroid::UpdateStateAfterReboot(const OTAResult result) {
       // return the space to user. Any subsequent attempt to install OTA will
       // allocate space again anyway.
       LOG(INFO) << "Detected a rollback, releasing space allocated for apex "
-                   "deompression.";
+                   "decompression.";
       apex_handler_android_->AllocateSpace({});
       DeltaPerformer::ResetUpdateProgress(prefs_, false);
     }
@@ -1243,6 +1245,15 @@ uint64_t UpdateAttempterAndroid::AllocateSpaceForPayload(
     const std::string& metadata_filename,
     const vector<string>& key_value_pair_headers,
     Error* error) {
+  LOG(INFO) << "AllocateSpaceForPayload(" << metadata_filename << ") "
+            << android::base::Join(key_value_pair_headers, ", ");
+  if (processor_->IsRunning() && !CancelOptionalPostinstall()) {
+    return LogAndSetGenericError(
+        error,
+        __LINE__,
+        __FILE__,
+        "Already processing an update, cancel it first.");
+  }
   std::map<string, string> headers;
   if (!ParseKeyValuePairHeaders(key_value_pair_headers, &headers, error)) {
     return 0;
@@ -1319,6 +1330,7 @@ uint64_t UpdateAttempterAndroid::AllocateSpaceForPayload(
 void UpdateAttempterAndroid::CleanupSuccessfulUpdate(
     std::unique_ptr<CleanupSuccessfulUpdateCallbackInterface> callback,
     Error* error) {
+  LOG(INFO) << "CleanupSuccessfulUpdate()";
   if (cleanup_previous_update_code_.has_value()) {
     LOG(INFO) << "CleanupSuccessfulUpdate has previously completed with "
               << utils::ErrorCodeToString(*cleanup_previous_update_code_);
@@ -1338,10 +1350,39 @@ void UpdateAttempterAndroid::CleanupSuccessfulUpdate(
   ScheduleCleanupPreviousUpdate();
 }
 
+bool UpdateAttempterAndroid::CancelOptionalPostinstall() {
+  if (!processor_->IsRunning()) {
+    return false;
+  }
+  auto current_action = processor_->current_action();
+  if (current_action->Type() != PostinstallRunnerAction::StaticType()) {
+    return false;
+  }
+  auto postinstall_action =
+      static_cast<PostinstallRunnerAction*>(current_action);
+  const InstallPlan& install_plan = postinstall_action->GetInputObject();
+  bool postinstall_succeeded = false;
+  prefs_->GetBoolean(kPrefsPostInstallSucceeded, &postinstall_succeeded);
+  // Normal OTA updates contain more than 1 partition, if it only contains 1
+  // partition, and we have previously ran postinstall action.
+  // It's most likely triggered by `triggerPostinstall`, we can safely
+  // cancel it.
+  if (install_plan.partitions.size() == 1 && install_plan.run_post_install &&
+      postinstall_succeeded) {
+    LOG(INFO)
+        << "Current running PostinstallAction is probably triggered by "
+           "TriggerPostinstall API. Since postinstall is optional, we will "
+           "cancel this action to service other API calls.";
+    processor_->StopProcessing();
+    return true;
+  }
+  return false;
+}
+
 bool UpdateAttempterAndroid::setShouldSwitchSlotOnReboot(
     const std::string& metadata_filename, Error* error) {
   LOG(INFO) << "setShouldSwitchSlotOnReboot(" << metadata_filename << ")";
-  if (processor_->IsRunning()) {
+  if (processor_->IsRunning() && !CancelOptionalPostinstall()) {
     return LogAndSetGenericError(
         error,
         __LINE__,
@@ -1427,7 +1468,7 @@ bool UpdateAttempterAndroid::setShouldSwitchSlotOnReboot(
 }
 
 bool UpdateAttempterAndroid::resetShouldSwitchSlotOnReboot(Error* error) {
-  if (processor_->IsRunning()) {
+  if (processor_->IsRunning() && !CancelOptionalPostinstall()) {
     return LogAndSetGenericError(
         error,
         __LINE__,
@@ -1552,7 +1593,7 @@ bool UpdateAttempterAndroid::TriggerPostinstall(const std::string& partition,
   InstallPlan install_plan;
   install_plan.source_slot = GetCurrentSlot();
   install_plan.target_slot = GetTargetSlot();
-  install_plan.switch_slot_on_reboot = false;
+  install_plan.switch_slot_on_reboot = install_plan_.switch_slot_on_reboot;
   install_plan.run_post_install = true;
   install_plan.download_url =
       std::string(kPrefsManifestBytes) + ":" + install_plan_.download_url;

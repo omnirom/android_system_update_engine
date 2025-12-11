@@ -47,13 +47,13 @@ class MapfileFilesystem : public FilesystemInterface {
   bool GetFiles(std::vector<File>* files) const override;
 
  private:
-  MapfileFilesystem(const std::string& mapfile_filename, off_t num_blocks);
+  MapfileFilesystem(const std::string& mapfile_filename, off64_t num_blocks);
 
   // The file where the map filesystem is stored.
   std::string mapfile_filename_;
 
   // The number of blocks in the filesystem.
-  off_t num_blocks_;
+  off64_t num_blocks_;
 
   DISALLOW_COPY_AND_ASSIGN(MapfileFilesystem);
 };

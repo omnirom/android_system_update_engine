@@ -45,7 +45,7 @@ class ChunkProcessor : public base::DelegateSimpleThread::Delegate {
   // Read a chunk of |size| bytes from |fd| starting at offset |offset|.
   ChunkProcessor(const PayloadVersion& version,
                  int fd,
-                 off_t offset,
+                 off64_t offset,
                  size_t size,
                  BlobFileWriter* blob_file,
                  AnnotatedOperation* aop)
@@ -72,7 +72,7 @@ class ChunkProcessor : public base::DelegateSimpleThread::Delegate {
   // Work parameters.
   const PayloadVersion& version_;
   int fd_;
-  off_t offset_;
+  off64_t offset_;
   size_t size_;
   BlobFileWriter* blob_file_;
   AnnotatedOperation* aop_;
@@ -169,7 +169,7 @@ bool FullUpdateGenerator::GenerateOperations(
     chunk_processors.emplace_back(
         config.version,
         in_fd,
-        static_cast<off_t>(start_block) * config.block_size,
+        static_cast<off64_t>(start_block) * config.block_size,
         num_blocks * config.block_size,
         blob_file,
         aop);

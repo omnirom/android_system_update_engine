@@ -101,13 +101,13 @@ bool PayloadProperties::LoadFromPayload() {
   brillo::Blob metadata_hash;
   TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfFile(
                             payload_path_, metadata_size_, &metadata_hash) ==
-                        static_cast<off_t>(metadata_size_));
+                        static_cast<off64_t>(metadata_size_));
   metadata_hash_ = brillo::data_encoding::Base64Encode(metadata_hash);
 
   brillo::Blob payload_hash;
   TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfFile(
                             payload_path_, payload_size_, &payload_hash) ==
-                        static_cast<off_t>(payload_size_));
+                        static_cast<off64_t>(payload_size_));
   payload_hash_ = brillo::data_encoding::Base64Encode(payload_hash);
 
   if (payload_metadata.GetMetadataSignatureSize() > 0) {

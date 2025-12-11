@@ -160,7 +160,7 @@ bool WriteAll(int fd, const void* buf, size_t count) {
   return true;
 }
 
-bool PWriteAll(int fd, const void* buf, size_t count, off_t offset) {
+bool PWriteAll(int fd, const void* buf, size_t count, off64_t offset) {
   const char* c_buf = static_cast<const char*>(buf);
   size_t bytes_written = 0;
   int num_attempts = 0;
@@ -196,14 +196,14 @@ bool WriteAll(FileDescriptor* fd, const void* buf, size_t count) {
 bool WriteAll(const FileDescriptorPtr& fd,
               const void* buf,
               size_t count,
-              off_t offset) {
+              off64_t offset) {
   TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(offset, SEEK_SET) !=
-                              static_cast<off_t>(-1));
+                              static_cast<off64_t>(-1));
   return WriteAll(fd, buf, count);
 }
 
 bool PReadAll(
-    int fd, void* buf, size_t count, off_t offset, ssize_t* out_bytes_read) {
+    int fd, void* buf, size_t count, off64_t offset, ssize_t* out_bytes_read) {
   char* c_buf = static_cast<char*>(buf);
   ssize_t bytes_read = 0;
   while (bytes_read < static_cast<ssize_t>(count)) {
@@ -222,10 +222,10 @@ bool PReadAll(
 bool ReadAll(FileDescriptor* fd,
              void* buf,
              size_t count,
-             off_t offset,
+             off64_t offset,
              ssize_t* out_bytes_read) {
   TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(offset, SEEK_SET) !=
-                              static_cast<off_t>(-1));
+                              static_cast<off64_t>(-1));
   char* c_buf = static_cast<char*>(buf);
   ssize_t bytes_read = 0;
   while (bytes_read < static_cast<ssize_t>(count)) {
@@ -243,7 +243,7 @@ bool ReadAll(FileDescriptor* fd,
 bool PReadAll(FileDescriptor* fd,
               void* buf,
               size_t count,
-              off_t offset,
+              off64_t offset,
               ssize_t* out_bytes_read) {
   auto old_off = fd->Seek(0, SEEK_CUR);
   TEST_AND_RETURN_FALSE_ERRNO(old_off >= 0);
@@ -256,7 +256,7 @@ bool PReadAll(FileDescriptor* fd,
 bool PWriteAll(const FileDescriptorPtr& fd,
                const void* buf,
                size_t count,
-               off_t offset) {
+               off64_t offset) {
   auto old_off = fd->Seek(0, SEEK_CUR);
   TEST_AND_RETURN_FALSE_ERRNO(old_off >= 0);
 
@@ -285,12 +285,12 @@ static void AppendBytes(const uint8_t* buf, size_t nbytes, string* str_p) {
 // file's content, false otherwise. If |size| is not -1, reads up to |size|
 // bytes.
 template <class T>
-static bool Read(FILE* fp, off_t size, T* out_p) {
+static bool Read(FILE* fp, off64_t size, T* out_p) {
   CHECK(fp);
   CHECK(size == -1 || size >= 0);
   uint8_t buf[1024];
   while (size == -1 || size > 0) {
-    off_t bytes_to_read = sizeof(buf);
+    off64_t bytes_to_read = sizeof(buf);
     if (size > 0 && bytes_to_read > size) {
       bytes_to_read = size;
     }
@@ -300,7 +300,7 @@ static bool Read(FILE* fp, off_t size, T* out_p) {
     }
     AppendBytes(buf, nbytes, out_p);
     if (size != -1) {
-      CHECK(size >= static_cast<off_t>(nbytes));
+      CHECK(size >= static_cast<off64_t>(nbytes));
       size -= nbytes;
     }
   }
@@ -315,8 +315,8 @@ static bool Read(FILE* fp, off_t size, T* out_p) {
 // of the file, returns success. If |size| is not -1, reads up to |size| bytes.
 template <class T>
 static bool ReadFileChunkAndAppend(const string& path,
-                                   off_t offset,
-                                   off_t size,
+                                   off64_t offset,
+                                   off64_t size,
                                    T* out_p) {
   CHECK_GE(offset, 0);
   CHECK(size == -1 || size >= 0);
@@ -353,13 +353,13 @@ bool ReadFile(const string& path, string* out_p) {
 }
 
 bool ReadFileChunk(const string& path,
-                   off_t offset,
-                   off_t size,
+                   off64_t offset,
+                   off64_t size,
                    brillo::Blob* out_p) {
   return ReadFileChunkAndAppend(path, offset, size, out_p);
 }
 
-off_t BlockDevSize(int fd) {
+off64_t BlockDevSize(int fd) {
   uint64_t dev_size{};
   int rc = ioctl(fd, BLKGETSIZE64, &dev_size);
   if (rc == -1) {
@@ -369,7 +369,7 @@ off_t BlockDevSize(int fd) {
   return dev_size;
 }
 
-off_t FileSize(int fd) {
+off64_t FileSize(int fd) {
   struct stat stbuf {};
   int rc = fstat(fd, &stbuf);
   CHECK_EQ(rc, 0);
@@ -385,13 +385,13 @@ off_t FileSize(int fd) {
   return -1;
 }
 
-off_t FileSize(const string& path) {
+off64_t FileSize(const string& path) {
   int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
   if (fd == -1) {
     PLOG(ERROR) << "Error opening " << path;
     return fd;
   }
-  off_t size = FileSize(fd);
+  off64_t size = FileSize(fd);
   if (size == -1)
     PLOG(ERROR) << "Error getting file size of " << path;
   close(fd);
@@ -1238,9 +1238,10 @@ ErrorCode IsTimestampNewer(const std::string_view old_version,
   return ErrorCode::kSuccess;
 }
 
-std::unique_ptr<android::base::MappedFile> GetReadonlyZeroBlock(size_t size) {
+std::optional<android::base::MappedFile> GetReadonlyZeroBlock(size_t size) {
   android::base::unique_fd fd{HANDLE_EINTR(open("/dev/zero", O_RDONLY))};
-  return android::base::MappedFile::FromFd(fd, 0, size, PROT_READ);
+  return android::base::MappedFile::Create(
+      android::base::borrowed_fd(fd), 0, size, PROT_READ);
 }
 
 std::string_view GetReadonlyZeroString(size_t size) {

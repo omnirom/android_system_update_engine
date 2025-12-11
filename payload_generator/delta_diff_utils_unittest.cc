@@ -49,7 +49,7 @@ namespace {
 // passed.
 bool WriteExtents(const string& part_path,
                   const vector<Extent>& extents,
-                  off_t block_size,
+                  off64_t block_size,
                   const brillo::Blob& data) {
   uint64_t offset = 0;
   base::ScopedFILE fp(fopen(part_path.c_str(), "r+"));
@@ -75,7 +75,7 @@ bool WriteExtents(const string& part_path,
 void CreatePartition(PartitionConfig* part,
                      ScopedTempFile* part_file,
                      uint64_t block_size,
-                     off_t size) {
+                     off64_t size) {
   part->path = part_file->path();
   ASSERT_EQ(0, ftruncate(part_file->fd(), size));
   part_file->CloseFd();
@@ -153,7 +153,7 @@ class DeltaDiffUtilsTest : public ::testing::Test {
 
   // The file holding the output blob from the various diff utils functions.
   ScopedTempFile tmp_blob_file_{"DeltaDiffUtilsTest-blob-XXXXXX", true};
-  off_t blob_size_{0};
+  off64_t blob_size_{0};
 
   size_t block_size_{kBlockSize};
 
@@ -859,6 +859,18 @@ TEST_F(DeltaDiffUtilsTest, FindAndCompactDeflates) {
                                  ExtentForRange(131104, 307),
                                  ExtentForRange(131414, 4143),
                                  ExtentForRange(135559, 8528)};
+  std::vector<puffin::BitExtent> out_deflates;
+  ASSERT_TRUE(deflate_utils::FindAndCompactDeflates(
+      extents, bit_extents, &out_deflates));
+}
+
+TEST_F(DeltaDiffUtilsTest, FindAndCompactDeflatesOverlappingExtents) {
+  std::vector<puffin::BitExtent> bit_extents{{5000 * 8, 10}};
+
+  std::vector<Extent> extents = {
+      ExtentForRange(0, 5),
+      ExtentForRange(1, 10),
+  };
   std::vector<puffin::BitExtent> out_deflates;
   ASSERT_TRUE(deflate_utils::FindAndCompactDeflates(
       extents, bit_extents, &out_deflates));

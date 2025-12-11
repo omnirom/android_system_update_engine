@@ -32,10 +32,10 @@ class BlobFileWriterTest : public ::testing::Test {};
 
 TEST(BlobFileWriterTest, SimpleTest) {
   ScopedTempFile blob_file("BlobFileWriterTest.XXXXXX", true);
-  off_t blob_file_size = 0;
+  off64_t blob_file_size = 0;
   BlobFileWriter blob_file_writer(blob_file.fd(), &blob_file_size);
 
-  const off_t kBlobSize = 1024;
+  const off64_t kBlobSize = 1024;
   brillo::Blob blob(kBlobSize);
   FillWithData(&blob);
   EXPECT_EQ(0, blob_file_writer.StoreBlob(blob));

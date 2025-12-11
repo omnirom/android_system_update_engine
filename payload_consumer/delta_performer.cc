@@ -1053,14 +1053,6 @@ bool DeltaPerformer::GetPublicKey(string* out_public_key) {
     LOG(INFO) << "Verifying using public key: " << public_key_path_;
     return utils::ReadFile(public_key_path_, out_public_key);
   }
-
-  // If this is an official build then we are not allowed to use public key
-  // from Omaha response.
-  if (!hardware_->IsOfficialBuild() && !install_plan_->public_key_rsa.empty()) {
-    LOG(INFO) << "Verifying using public key from Omaha response.";
-    return brillo::data_encoding::Base64Decode(install_plan_->public_key_rsa,
-                                               out_public_key);
-  }
   LOG(INFO) << "No public keys found for verification.";
   return true;
 }

@@ -16,9 +16,8 @@
 
 #include "update_engine/libcurl_http_fetcher.h"
 
-#include <netinet/in.h>
 #include <resolv.h>
-#include <sys/types.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -28,7 +27,6 @@
 #include <base/format_macros.h>
 #include <base/location.h>
 #include <base/logging.h>
-#include <base/strings/string_split.h>
 #include <android-base/stringprintf.h>
 #include <base/threading/thread_task_runner_handle.h>
 
@@ -210,10 +208,10 @@ void LibcurlHttpFetcher::ResumeTransfer(const string& url) {
 
     // Compute end offset, if one is specified. As per HTTP specification, this
     // is an inclusive boundary. Make sure it doesn't overflow.
-    size_t end_offset = 0;
+    uint64_t end_offset = 0;
     if (download_length_) {
-      end_offset = static_cast<size_t>(resume_offset_) + download_length_ - 1;
-      CHECK_LE((size_t)resume_offset_, end_offset);
+      end_offset = static_cast<uint64_t>(resume_offset_) + download_length_ - 1;
+      CHECK_LE(static_cast<uint64_t>(resume_offset_), end_offset);
     }
 
     // Create a string representation of the desired range.
@@ -264,8 +262,11 @@ void LibcurlHttpFetcher::ResumeTransfer(const string& url) {
 #endif  // __ANDROID__
     } else {
       LOG(ERROR) << "Received invalid URI: " << url_;
-      // Lock down to no protocol supported for the transfer.
-      CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS, 0), CURLE_OK);
+      // Lock down to no protocol supported for the transfer. Passing an empty
+      // string will disable all protocols. This will return
+      // CURLE_BAD_FUNCTION_ARGUMENT
+      CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS_STR, ""),
+               CURLE_BAD_FUNCTION_ARGUMENT);
     }
   } else {
     LOG(INFO) << "Not setting http(s) curl options because we are "
@@ -279,11 +280,10 @@ void LibcurlHttpFetcher::ResumeTransfer(const string& url) {
 // Lock down only the protocol in case of HTTP.
 void LibcurlHttpFetcher::SetCurlOptionsForHttp() {
   LOG(INFO) << "Setting up curl options for HTTP";
-  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS, CURLPROTO_HTTP),
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS_STR, "http"),
            CURLE_OK);
-  CHECK_EQ(
-      curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP),
-      CURLE_OK);
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS_STR, "http"),
+           CURLE_OK);
 }
 
 // Security lock-down in official builds: makes sure that peer certificate
@@ -297,11 +297,10 @@ void LibcurlHttpFetcher::SetCurlOptionsForHttps() {
   CHECK_EQ(curl_easy_setopt(
                curl_handle_, CURLOPT_CAPATH, constants::kCACertificatesPath),
            CURLE_OK);
-  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS),
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS_STR, "https"),
            CURLE_OK);
-  CHECK_EQ(
-      curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS),
-      CURLE_OK);
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS_STR, "https"),
+           CURLE_OK);
   CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_SSL_CIPHER_LIST, "HIGH:!ADH"),
            CURLE_OK);
   if (server_to_check_ != ServerToCheck::kNone) {
@@ -318,11 +317,10 @@ void LibcurlHttpFetcher::SetCurlOptionsForHttps() {
 // Lock down only the protocol in case of a local file.
 void LibcurlHttpFetcher::SetCurlOptionsForFile() {
   LOG(INFO) << "Setting up curl options for FILE";
-  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS, CURLPROTO_FILE),
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_PROTOCOLS_STR, "file"),
            CURLE_OK);
-  CHECK_EQ(
-      curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_FILE),
-      CURLE_OK);
+  CHECK_EQ(curl_easy_setopt(curl_handle_, CURLOPT_REDIR_PROTOCOLS_STR, "file"),
+           CURLE_OK);
 }
 
 // Begins the transfer, which must not have already been started.
@@ -575,10 +573,12 @@ void LibcurlHttpFetcher::CurlPerformOnce() {
   ignore_failure_ = false;
 }
 
-size_t LibcurlHttpFetcher::LibcurlWrite(void* ptr, size_t size, size_t nmemb) {
+uint64_t LibcurlHttpFetcher::LibcurlWrite(void* ptr,
+                                          size_t size,
+                                          size_t nmemb) {
   // Update HTTP response first.
   GetHttpResponseCode();
-  const size_t payload_size = size * nmemb;
+  const uint64_t payload_size = static_cast<uint64_t>(size) * nmemb;
 
   // Do nothing if no payload or HTTP response is an error.
   if (payload_size == 0 || !IsHttpResponseSuccess()) {
@@ -589,12 +589,12 @@ size_t LibcurlHttpFetcher::LibcurlWrite(void* ptr, size_t size, size_t nmemb) {
 
   sent_byte_ = true;
   {
-    double transfer_size_double{};
+    curl_off_t transfer_size_double{};
     CHECK_EQ(curl_easy_getinfo(curl_handle_,
-                               CURLINFO_CONTENT_LENGTH_DOWNLOAD,
+                               CURLINFO_CONTENT_LENGTH_DOWNLOAD_T,
                                &transfer_size_double),
              CURLE_OK);
-    off_t new_transfer_size = static_cast<off_t>(transfer_size_double);
+    off64_t new_transfer_size = static_cast<off64_t>(transfer_size_double);
     if (new_transfer_size > 0) {
       transfer_size_ = resume_offset_ + new_transfer_size;
     }

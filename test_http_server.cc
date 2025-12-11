@@ -31,8 +31,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <string>
@@ -71,8 +69,8 @@ struct HttpRequest {
   string raw_headers;
   string host;
   string url;
-  off_t start_offset{0};
-  off_t end_offset{0};  // non-inclusive, zero indicates unspecified.
+  off64_t start_offset{0};
+  off64_t end_offset{0};  // non-inclusive, zero indicates unspecified.
   HttpResponseCode return_code{kHttpResponseOk};
 };
 
@@ -144,7 +142,7 @@ bool ParseRequest(int fd, HttpRequest* request) {
   return true;
 }
 
-string Itoa(off_t num) {
+string Itoa(off64_t num) {
   char buf[100] = {0};
   snprintf(buf, sizeof(buf), "%" PRIi64, num);
   return buf;
@@ -173,8 +171,8 @@ ssize_t WriteString(int fd, const string& str) {
 
 // Writes the headers of an HTTP response into a file.
 ssize_t WriteHeaders(int fd,
-                     const off_t start_offset,
-                     const off_t end_offset,
+                     const off64_t start_offset,
+                     const off64_t end_offset,
                      HttpResponseCode return_code) {
   ssize_t written = 0, ret{};
 
@@ -188,7 +186,7 @@ ssize_t WriteHeaders(int fd,
   written += ret;
 
   // Compute content legnth.
-  const off_t content_length = end_offset - start_offset;
+  const off64_t content_length = end_offset - start_offset;
 
   // A start offset that equals the end offset indicates that the response
   // should contain the full range of bytes in the requested resource.
@@ -216,8 +214,8 @@ ssize_t WriteHeaders(int fd,
 // first byte of output is appropriately offset with respect to the request line
 // length.  Returns the number of successfully written bytes.
 size_t WritePayload(int fd,
-                    const off_t start_offset,
-                    const off_t end_offset,
+                    const off64_t start_offset,
+                    const off64_t end_offset,
                     const char first_byte,
                     const size_t line_len) {
   CHECK_LE(start_offset, end_offset);
@@ -269,8 +267,8 @@ size_t WritePayload(int fd,
 
 // Write default payload lines of the form 'abcdefghij'.
 inline size_t WritePayload(int fd,
-                           const off_t start_offset,
-                           const off_t end_offset) {
+                           const off64_t start_offset,
+                           const off64_t end_offset) {
   return WritePayload(fd, start_offset, end_offset, 'a', 10);
 }
 
@@ -345,7 +343,7 @@ ssize_t HandleGet(int fd,
   // Decide about optional midway delay.
   if (truncate_length > 0 && sleep_every > 0 && sleep_secs >= 0 &&
       start_offset % (truncate_length * sleep_every) == 0) {
-    const off_t midway_offset = start_offset + payload_length / 2;
+    const off64_t midway_offset = start_offset + payload_length / 2;
 
     if ((ret = WritePayload(fd, start_offset, midway_offset)) < 0)
       return -1;
@@ -473,7 +471,7 @@ void HandleHang(int fd) {
 }
 
 void HandleDefault(int fd, const HttpRequest& request) {
-  const off_t start_offset = request.start_offset;
+  const off64_t start_offset = request.start_offset;
   const string data("unhandled path");
   const size_t size = data.size();
   ssize_t ret{};
@@ -482,7 +480,7 @@ void HandleDefault(int fd, const HttpRequest& request) {
     return;
   WriteString(
       fd,
-      (start_offset < static_cast<off_t>(size) ? data.substr(start_offset)
+      (start_offset < static_cast<off64_t>(size) ? data.substr(start_offset)
                                                : ""));
 }
 
@@ -502,12 +500,12 @@ class UrlTerms {
     CHECK_EQ(terms.size(), num_terms);
   }
 
-  inline const string& Get(const off_t index) const { return terms[index]; }
-  inline const char* GetCStr(const off_t index) const {
+  inline const string& Get(const off64_t index) const { return terms[index]; }
+  inline const char* GetCStr(const off64_t index) const {
     return Get(index).c_str();
   }
-  inline int GetInt(const off_t index) const { return atoi(GetCStr(index)); }
-  inline size_t GetSizeT(const off_t index) const {
+  inline int GetInt(const off64_t index) const { return atoi(GetCStr(index)); }
+  inline size_t GetSizeT(const off64_t index) const {
     return static_cast<size_t>(atol(GetCStr(index)));
   }
 

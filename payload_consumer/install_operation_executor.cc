@@ -69,7 +69,7 @@ class BsdiffExtentFile : public bsdiff::FileInterface {
     return true;
   }
 
-  bool Seek(off_t pos) override {
+  bool Seek(off64_t pos) override {
     if (reader_ != nullptr) {
       TEST_AND_RETURN_FALSE(reader_->Seek(pos));
       offset_ = pos;

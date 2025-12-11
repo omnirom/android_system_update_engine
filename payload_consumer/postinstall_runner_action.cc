@@ -363,7 +363,6 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
   // applyPayload(), and only run actual postinstall work if scheduled by
   // external async scheduler.
   if (install_plan_.partitions.size() == 1 &&
-      !install_plan_.switch_slot_on_reboot &&
       install_plan_.download_url.starts_with(kPrefsManifestBytes)) {
     command.push_back("1");
   }
